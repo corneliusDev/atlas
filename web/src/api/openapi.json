@@ -1,0 +1,2806 @@
+{
+  "components": {
+    "schemas": {
+      "AcceptedFile": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "unchanged": {
+            "title": "Unchanged",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "job_id",
+          "unchanged"
+        ],
+        "title": "AcceptedFile",
+        "type": "object"
+      },
+      "BacklinkDto": {
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "document": {
+            "$ref": "#/components/schemas/DocumentRef"
+          }
+        },
+        "required": [
+          "document",
+          "anchor"
+        ],
+        "title": "BacklinkDto",
+        "type": "object"
+      },
+      "Body_upload_api_uploads_post": {
+        "properties": {
+          "files": {
+            "description": ".md, .markdown or .zip files",
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "vault": {
+            "default": "00000000-0000-0000-0000-000000000001",
+            "format": "uuid",
+            "title": "Vault",
+            "type": "string"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "Body_upload_api_uploads_post",
+        "type": "object"
+      },
+      "ClusterInfo": {
+        "properties": {
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "color",
+          "size"
+        ],
+        "title": "ClusterInfo",
+        "type": "object"
+      },
+      "DocumentDetail": {
+        "properties": {
+          "backlinks": {
+            "items": {
+              "$ref": "#/components/schemas/BacklinkDto"
+            },
+            "title": "Backlinks",
+            "type": "array"
+          },
+          "cluster_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Id"
+          },
+          "frontmatter": {
+            "additionalProperties": true,
+            "title": "Frontmatter",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "indexed_at": {
+            "format": "date-time",
+            "title": "Indexed At",
+            "type": "string"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "vault",
+              "upload"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "outgoing": {
+            "items": {
+              "$ref": "#/components/schemas/OutgoingWikiLinkDto"
+            },
+            "title": "Outgoing",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "related": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedDocument"
+            },
+            "title": "Related",
+            "type": "array"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentTopicDto"
+            },
+            "title": "Topics",
+            "type": "array"
+          },
+          "vault": {
+            "format": "uuid",
+            "title": "Vault",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vault",
+          "path",
+          "origin",
+          "title",
+          "markdown",
+          "frontmatter",
+          "summary",
+          "tags",
+          "cluster_id",
+          "indexed_at",
+          "topics",
+          "related",
+          "backlinks",
+          "outgoing"
+        ],
+        "title": "DocumentDetail",
+        "type": "object"
+      },
+      "DocumentNode": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "document",
+            "default": "document",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "DocumentNode",
+        "type": "object"
+      },
+      "DocumentPair": {
+        "description": "Ordered pair of distinct documents: ``a < b`` (UUID ordering). Build with ``of``.",
+        "properties": {
+          "a": {
+            "format": "uuid",
+            "title": "A",
+            "type": "string"
+          },
+          "b": {
+            "format": "uuid",
+            "title": "B",
+            "type": "string"
+          }
+        },
+        "required": [
+          "a",
+          "b"
+        ],
+        "title": "DocumentPair",
+        "type": "object"
+      },
+      "DocumentRef": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "title"
+        ],
+        "title": "DocumentRef",
+        "type": "object"
+      },
+      "DocumentTopicDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TopicKind"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "salience": {
+            "title": "Salience",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "salience"
+        ],
+        "title": "DocumentTopicDto",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "verdict": {
+            "$ref": "#/components/schemas/LinkVerdict"
+          }
+        },
+        "required": [
+          "verdict"
+        ],
+        "title": "FeedbackRequest",
+        "type": "object"
+      },
+      "FeedbackResponse": {
+        "properties": {
+          "pair": {
+            "$ref": "#/components/schemas/DocumentPair"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/LinkVerdict"
+          }
+        },
+        "required": [
+          "pair",
+          "verdict",
+          "updated_at"
+        ],
+        "title": "FeedbackResponse",
+        "type": "object"
+      },
+      "FileProgress": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "model_timeout": "#/components/schemas/ModelTimeout",
+                    "model_unavailable": "#/components/schemas/ModelUnavailable",
+                    "not_utf8": "#/components/schemas/NotUtf8"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ModelUnavailable"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ModelTimeout"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NotUtf8"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "upsert",
+              "remove"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "indexed": "#/components/schemas/Indexed",
+                    "reclustered": "#/components/schemas/Reclustered",
+                    "removed": "#/components/schemas/Removed",
+                    "skipped": "#/components/schemas/Skipped"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Indexed"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Skipped"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Removed"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Reclustered"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FileStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "path",
+          "kind",
+          "status",
+          "attempts",
+          "error",
+          "outcome",
+          "updated_at"
+        ],
+        "title": "FileProgress",
+        "type": "object"
+      },
+      "FileStatus": {
+        "description": "UP-4 per-file status, derived from the job row (pending->queued, running->indexing,\ndone->linked, failed->failed).",
+        "enum": [
+          "queued",
+          "indexing",
+          "linked",
+          "failed"
+        ],
+        "title": "FileStatus",
+        "type": "string"
+      },
+      "GhostNode": {
+        "properties": {
+          "kind": {
+            "const": "ghost",
+            "default": "ghost",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "GhostNode",
+        "type": "object"
+      },
+      "GraphEdge": {
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinkVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "semantic",
+              "wiki",
+              "topic",
+              "manual"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "source",
+          "target",
+          "weight"
+        ],
+        "title": "GraphEdge",
+        "type": "object"
+      },
+      "GraphNode": {
+        "properties": {
+          "cluster_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Id"
+          },
+          "degree": {
+            "default": 0,
+            "title": "Degree",
+            "type": "integer"
+          },
+          "indexed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexed At"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "ref": {
+            "discriminator": {
+              "mapping": {
+                "document": "#/components/schemas/DocumentNode",
+                "ghost": "#/components/schemas/GhostNode",
+                "topic": "#/components/schemas/TopicNode"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DocumentNode"
+              },
+              {
+                "$ref": "#/components/schemas/TopicNode"
+              },
+              {
+                "$ref": "#/components/schemas/GhostNode"
+              }
+            ],
+            "title": "Ref"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "topic_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TopicKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "ref",
+          "label"
+        ],
+        "title": "GraphNode",
+        "type": "object"
+      },
+      "GraphStats": {
+        "properties": {
+          "clusters": {
+            "title": "Clusters",
+            "type": "integer"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "links": {
+            "title": "Links",
+            "type": "integer"
+          },
+          "topics": {
+            "title": "Topics",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "documents",
+          "topics",
+          "clusters",
+          "links"
+        ],
+        "title": "GraphStats",
+        "type": "object"
+      },
+      "GraphView": {
+        "properties": {
+          "center": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center"
+          },
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterInfo"
+            },
+            "title": "Clusters",
+            "type": "array"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/GraphStats"
+          }
+        },
+        "required": [
+          "nodes",
+          "edges",
+          "clusters",
+          "stats"
+        ],
+        "title": "GraphView",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "boolean"
+          },
+          "embeddings": {
+            "title": "Embeddings",
+            "type": "boolean"
+          },
+          "llm": {
+            "enum": [
+              "enabled",
+              "embeddings_only"
+            ],
+            "title": "Llm",
+            "type": "string"
+          },
+          "llm_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Model"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "embeddings",
+          "llm",
+          "llm_model",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "IgnoredFile": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "not_markdown",
+              "too_large",
+              "invalid_path"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "reason"
+        ],
+        "title": "IgnoredFile",
+        "type": "object"
+      },
+      "Indexed": {
+        "properties": {
+          "cluster_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Id"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "indexed",
+            "default": "indexed",
+            "title": "Kind",
+            "type": "string"
+          },
+          "link_count": {
+            "title": "Link Count",
+            "type": "integer"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "topic_count": {
+            "title": "Topic Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "path",
+          "link_count",
+          "topic_count",
+          "cluster_id"
+        ],
+        "title": "Indexed",
+        "type": "object"
+      },
+      "JobFailure": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "error": {
+            "discriminator": {
+              "mapping": {
+                "model_timeout": "#/components/schemas/ModelTimeout",
+                "model_unavailable": "#/components/schemas/ModelUnavailable",
+                "not_utf8": "#/components/schemas/NotUtf8"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ModelUnavailable"
+              },
+              {
+                "$ref": "#/components/schemas/ModelTimeout"
+              },
+              {
+                "$ref": "#/components/schemas/NotUtf8"
+              }
+            ],
+            "title": "Error"
+          },
+          "failed_at": {
+            "format": "date-time",
+            "title": "Failed At",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "upsert",
+              "remove",
+              "recluster"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          }
+        },
+        "required": [
+          "job_id",
+          "kind",
+          "path",
+          "error",
+          "attempts",
+          "failed_at"
+        ],
+        "title": "JobFailure",
+        "type": "object"
+      },
+      "JobState": {
+        "enum": [
+          "pending",
+          "running",
+          "done",
+          "failed"
+        ],
+        "title": "JobState",
+        "type": "string"
+      },
+      "JobsStatusResponse": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/JobState"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "files": {
+            "description": "Latest job per path, most recently updated first (limit)",
+            "items": {
+              "$ref": "#/components/schemas/FileProgress"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "idle": {
+            "title": "Idle",
+            "type": "boolean"
+          },
+          "recent_failures": {
+            "items": {
+              "$ref": "#/components/schemas/JobFailure"
+            },
+            "title": "Recent Failures",
+            "type": "array"
+          },
+          "recluster_pending": {
+            "title": "Recluster Pending",
+            "type": "boolean"
+          },
+          "vault": {
+            "format": "uuid",
+            "title": "Vault",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vault",
+          "counts",
+          "files",
+          "recent_failures",
+          "recluster_pending",
+          "idle"
+        ],
+        "title": "JobsStatusResponse",
+        "type": "object"
+      },
+      "LinkEndpoint": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "path",
+          "title"
+        ],
+        "title": "LinkEndpoint",
+        "type": "object"
+      },
+      "LinkEvidenceView": {
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/LinkEndpoint"
+          },
+          "a_passage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Passage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "b": {
+            "$ref": "#/components/schemas/LinkEndpoint"
+          },
+          "b_passage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Passage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinkVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "enum": [
+              "semantic",
+              "manual"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "pair": {
+            "$ref": "#/components/schemas/DocumentPair"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "required": [
+          "pair",
+          "a",
+          "b",
+          "origin",
+          "score",
+          "reason",
+          "a_passage",
+          "b_passage",
+          "feedback"
+        ],
+        "title": "LinkEvidenceView",
+        "type": "object"
+      },
+      "LinkVerdict": {
+        "enum": [
+          "confirmed",
+          "hidden",
+          "added"
+        ],
+        "title": "LinkVerdict",
+        "type": "string"
+      },
+      "ModelTimeout": {
+        "properties": {
+          "kind": {
+            "const": "model_timeout",
+            "default": "model_timeout",
+            "title": "Kind",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "embed",
+              "summarize",
+              "topics",
+              "explain_links",
+              "label_clusters"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "title": "ModelTimeout",
+        "type": "object"
+      },
+      "ModelUnavailable": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "kind": {
+            "const": "model_unavailable",
+            "default": "model_unavailable",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ModelUnavailable",
+        "type": "object"
+      },
+      "NodeKind": {
+        "enum": [
+          "document",
+          "topic",
+          "ghost"
+        ],
+        "title": "NodeKind",
+        "type": "string"
+      },
+      "NotUtf8": {
+        "properties": {
+          "kind": {
+            "const": "not_utf8",
+            "default": "not_utf8",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "NotUtf8",
+        "type": "object"
+      },
+      "OutgoingWikiLinkDto": {
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor"
+          },
+          "resolved": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_name": {
+            "title": "Target Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_name",
+          "anchor",
+          "resolved"
+        ],
+        "title": "OutgoingWikiLinkDto",
+        "type": "object"
+      },
+      "Passage": {
+        "properties": {
+          "chunk_id": {
+            "format": "uuid",
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "heading_path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Heading Path",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunk_id",
+          "heading_path",
+          "text"
+        ],
+        "title": "Passage",
+        "type": "object"
+      },
+      "ReclusterResponse": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "vault": {
+            "format": "uuid",
+            "title": "Vault",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vault",
+          "job_id"
+        ],
+        "title": "ReclusterResponse",
+        "type": "object"
+      },
+      "Reclustered": {
+        "properties": {
+          "cluster_count": {
+            "title": "Cluster Count",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "reclustered",
+            "default": "reclustered",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cluster_count"
+        ],
+        "title": "Reclustered",
+        "type": "object"
+      },
+      "RelatedDocument": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DocumentRef"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinkVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          }
+        },
+        "required": [
+          "document",
+          "score",
+          "reason",
+          "feedback"
+        ],
+        "title": "RelatedDocument",
+        "type": "object"
+      },
+      "Removed": {
+        "properties": {
+          "kind": {
+            "const": "removed",
+            "default": "removed",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "Removed",
+        "type": "object"
+      },
+      "ScanReport": {
+        "properties": {
+          "ignored": {
+            "items": {
+              "$ref": "#/components/schemas/IgnoredFile"
+            },
+            "title": "Ignored",
+            "type": "array"
+          },
+          "removes": {
+            "title": "Removes",
+            "type": "integer"
+          },
+          "scanned": {
+            "title": "Scanned",
+            "type": "integer"
+          },
+          "unchanged": {
+            "title": "Unchanged",
+            "type": "integer"
+          },
+          "upserts": {
+            "title": "Upserts",
+            "type": "integer"
+          },
+          "vault": {
+            "format": "uuid",
+            "title": "Vault",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vault",
+          "scanned",
+          "upserts",
+          "removes",
+          "unchanged",
+          "ignored"
+        ],
+        "title": "ScanReport",
+        "type": "object"
+      },
+      "SearchHit": {
+        "properties": {
+          "chunk_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "cluster_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cluster Id"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "heading_path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Heading Path",
+            "type": "array"
+          },
+          "keyword_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keyword Rank"
+          },
+          "node": {
+            "$ref": "#/components/schemas/DocumentNode"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "semantic_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Rank"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "document_id",
+          "path",
+          "title",
+          "chunk_id",
+          "heading_path",
+          "snippet",
+          "score",
+          "keyword_rank",
+          "semantic_rank",
+          "cluster_id"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "took_ms": {
+            "title": "Took Ms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "hits",
+          "took_ms"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "SkipReason": {
+        "enum": [
+          "unchanged",
+          "superseded"
+        ],
+        "title": "SkipReason",
+        "type": "string"
+      },
+      "Skipped": {
+        "properties": {
+          "kind": {
+            "const": "skipped",
+            "default": "skipped",
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/SkipReason"
+          }
+        },
+        "required": [
+          "path",
+          "reason"
+        ],
+        "title": "Skipped",
+        "type": "object"
+      },
+      "TopicKind": {
+        "enum": [
+          "concept",
+          "person",
+          "org",
+          "tag"
+        ],
+        "title": "TopicKind",
+        "type": "string"
+      },
+      "TopicNode": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "topic",
+            "default": "topic",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "TopicNode",
+        "type": "object"
+      },
+      "UploadResponse": {
+        "properties": {
+          "accepted": {
+            "items": {
+              "$ref": "#/components/schemas/AcceptedFile"
+            },
+            "title": "Accepted",
+            "type": "array"
+          },
+          "ignored": {
+            "items": {
+              "$ref": "#/components/schemas/IgnoredFile"
+            },
+            "title": "Ignored",
+            "type": "array"
+          },
+          "vault": {
+            "format": "uuid",
+            "title": "Vault",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vault",
+          "accepted",
+          "ignored"
+        ],
+        "title": "UploadResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VaultDto": {
+        "properties": {
+          "document_count": {
+            "title": "Document Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mounted": {
+            "title": "Mounted",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "root_path": {
+            "title": "Root Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "root_path",
+          "mounted",
+          "document_count"
+        ],
+        "title": "VaultDto",
+        "type": "object"
+      },
+      "VaultListResponse": {
+        "properties": {
+          "vaults": {
+            "items": {
+              "$ref": "#/components/schemas/VaultDto"
+            },
+            "title": "Vaults",
+            "type": "array"
+          }
+        },
+        "required": [
+          "vaults"
+        ],
+        "title": "VaultListResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Atlas API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/documents/{document_id}": {
+      "get": {
+        "operationId": "document_api_documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Vault id; defaults to the seeded default vault",
+            "in": "query",
+            "name": "vault",
+            "required": false,
+            "schema": {
+              "default": "00000000-0000-0000-0000-000000000001",
+              "description": "Vault id; defaults to the seeded default vault",
+              "format": "uuid",
+              "title": "Vault",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Document",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/api/graph": {
+      "get": {
+        "operationId": "global_graph_api_graph_get",
+        "parameters": [
+          {
+            "description": "Vault id; defaults to the seeded default vault",
+            "in": "query",
+            "name": "vault",
+            "required": false,
+            "schema": {
+              "default": "00000000-0000-0000-0000-000000000001",
+              "description": "Vault id; defaults to the seeded default vault",
+              "format": "uuid",
+              "title": "Vault",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Node layers; default all",
+            "in": "query",
+            "name": "layer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/NodeKind"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Node layers; default all",
+              "title": "Layer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cluster",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cluster"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "vault",
+                      "upload"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_score",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Min Score",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "indexed_after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Indexed After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "indexed_before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Indexed Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Hidden",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Global Graph",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/api/graph/local/{node}": {
+      "get": {
+        "operationId": "local_graph_api_graph_local__node__get",
+        "parameters": [
+          {
+            "description": "Node key: \"doc:<uuid>\", \"topic:<uuid>\" or \"ghost:<name>\"",
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "description": "Node key: \"doc:<uuid>\", \"topic:<uuid>\" or \"ghost:<name>\"",
+              "title": "Node",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Vault id; defaults to the seeded default vault",
+            "in": "query",
+            "name": "vault",
+            "required": false,
+            "schema": {
+              "default": "00000000-0000-0000-0000-000000000001",
+              "description": "Vault id; defaults to the seeded default vault",
+              "format": "uuid",
+              "title": "Vault",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 3,
+              "minimum": 1,
+              "title": "Depth",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Local Graph",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/jobs/status": {
+      "get": {
+        "operationId": "jobs_status_api_jobs_status_get",
+        "parameters": [
+          {
+            "description": "Vault id; defaults to the seeded default vault",
+            "in": "query",
+            "name": "vault",
+            "required": false,
+            "schema": {
+              "default": "00000000-0000-0000-0000-000000000001",
+              "description": "Vault id; defaults to the seeded default vault",
+              "format": "uuid",
+              "title": "Vault",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobsStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Progress tray: counts by state, latest job per file, recent failures",
+        "tags": [
+          "ingest"
+        ]
+      }
+    },
+    "/api/links/{a}/{b}": {
+      "get": {
+        "operationId": "link_evidence_api_links__a___b__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "a",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "A",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "b",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "B",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Vault id; defaults to the seeded default vault",
+            "in": "query",
+            "name": "vault",
+            "required": false,
+            "schema": {
+              "default": "00000000-0000-0000-0000-000000000001",
+              "description": "Vault id; defaults to the seeded default vault",
+              "format": "uuid",
+              "title": "Vault",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkEvidenceView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Why connected? (pair order does not matter)",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/api/links/{a}/{b}/feedback": {
+      "put": {
+        "operationId": "link_feedback_api_links__a___b__feedback_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "a",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "A",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "b",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "B",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Vault id; defaults to the seeded default vault",
+            "in": "query",
+            "name": "vault",
+            "required": false,
+            "schema": {
+              "default": "00000000-0000-0000-0000-000000000001",
+              "description": "Vault id; defaults to the seeded default vault",
+              "format": "uuid",
+              "title": "Vault",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Link Feedback",
+        "tags": [
+          "links"
+        ]
+      }
+    },
+    "/api/search": {
+      "get": {
+        "operationId": "search_api_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 500,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Vault id; defaults to the seeded default vault",
+            "in": "query",
+            "name": "vault",
+            "required": false,
+            "schema": {
+              "default": "00000000-0000-0000-0000-000000000001",
+              "description": "Vault id; defaults to the seeded default vault",
+              "format": "uuid",
+              "title": "Vault",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cluster",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cluster"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/api/uploads": {
+      "post": {
+        "operationId": "upload_api_uploads_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_api_uploads_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Upload .md/.markdown files or a .zip; one Upsert(origin=upload) job per file",
+        "tags": [
+          "ingest"
+        ]
+      }
+    },
+    "/api/vaults": {
+      "get": {
+        "operationId": "list_vaults_api_vaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Vaults",
+        "tags": [
+          "vaults"
+        ]
+      }
+    },
+    "/api/vaults/{vault_id}/recluster": {
+      "post": {
+        "operationId": "recluster_api_vaults__vault_id__recluster_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vault_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vault Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReclusterResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Recluster",
+        "tags": [
+          "ingest"
+        ]
+      }
+    },
+    "/api/vaults/{vault_id}/scan": {
+      "post": {
+        "operationId": "scan_api_vaults__vault_id__scan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vault_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vault Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Implemented"
+          }
+        },
+        "summary": "Scan",
+        "tags": [
+          "ingest"
+        ]
+      }
+    }
+  }
+}
