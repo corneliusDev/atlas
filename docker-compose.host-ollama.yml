@@ -1,0 +1,35 @@
+# host-ollama: use Ollama running natively on the host (e.g. the macOS app, which can use the
+# Apple GPU) instead of the ollama container. Pull the model on the host first:
+#   ollama pull nomic-embed-text
+# Then:
+#   docker compose -f docker-compose.yml -f docker-compose.host-ollama.yml up
+# The ollama / ollama-init containers are moved into the "bundled-ollama" profile, so they
+# do not start.
+
+x-host-ollama-env: &host-ollama-env
+  OLLAMA_URL: ${HOST_OLLAMA_URL:-http://host.docker.internal:11434}
+
+services:
+  ollama:
+    profiles: !override [bundled-ollama]
+
+  ollama-init:
+    profiles: !override [bundled-ollama]
+
+  api:
+    environment: *host-ollama-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: !override
+      db:
+        condition: service_healthy
+
+  worker:
+    environment: *host-ollama-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: !override
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy

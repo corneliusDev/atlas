@@ -1,0 +1,6 @@
+# Verification overlay used by infra/scripts/verify-migrations.sh: publishes the db on a
+# localhost-only host port so host-side tests can reach it. Not for normal use.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${ATLAS_DB_PORT:-55431}:5432"

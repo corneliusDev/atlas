@@ -1,0 +1,124 @@
+# Atlas local stack. `cp .env.example .env && docker compose up` -> http://localhost:3000
+#
+# Services: db (Postgres 16 + pgvector, also the job queue), ollama (embeddings only),
+# ollama-init (one-shot: pulls nomic-embed-text, then exits), api + worker (one image),
+# web (React build served by nginx, proxies /api to api:8000).
+#
+# Native Ollama on the host instead of the container (faster on macOS):
+#   docker compose -f docker-compose.yml -f docker-compose.host-ollama.yml up
+# or set COMPOSE_FILE=docker-compose.yml:docker-compose.host-ollama.yml in .env.
+
+x-atlas-env: &atlas-env
+  DATABASE_URL: postgresql://atlas:atlas@db:5432/atlas
+  OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  ATLAS_LLM_MODEL: ${ATLAS_LLM_MODEL:-claude-opus-5-5}
+  ATLAS_EMBEDDINGS_ONLY: ${ATLAS_EMBEDDINGS_ONLY:-false}
+  VAULT_ROOT: /vault
+  UPLOADS_ROOT: /uploads
+
+x-atlas-volumes: &atlas-volumes
+  # The user's vault is read-only: Atlas never writes to it.
+  - type: bind
+    source: ${VAULT_PATH:-./samples/vault}
+    target: /vault
+    read_only: true
+  - uploads:/uploads
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      # The image has no curl/wget; the ollama CLI talks to the local server.
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    # Linux + NVIDIA: uncomment to give Ollama the GPU.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+  ollama-init:
+    image: ollama/ollama
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama"]
+    command: ["pull", "nomic-embed-text"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  api:
+    build: ./api
+    image: atlas-api:local
+    restart: unless-stopped
+    # Default CMD in the image: apply migrations, then uvicorn on :8000.
+    environment: *atlas-env
+    volumes: *atlas-volumes
+    depends_on:
+      db:
+        condition: service_healthy
+      # The UI must come up before the ~300 MB model pull finishes; only the worker waits.
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/openapi.json', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  worker:
+    image: atlas-api:local
+    build: ./api
+    restart: unless-stopped
+    command: ["python", "-m", "atlas.worker"]
+    environment: *atlas-env
+    volumes: *atlas-volumes
+    depends_on:
+      db:
+        condition: service_healthy
+      # api applies migrations on start; worker also applies them (advisory-locked, idempotent).
+      api:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+
+  web:
+    build: ./web
+    image: atlas-web:local
+    restart: unless-stopped
+    ports:
+      # localhost only: Atlas has no auth.
+      - "127.0.0.1:${ATLAS_WEB_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata: {}
+  ollama: {}
+  uploads: {}
