@@ -1,4 +1,7 @@
-"""Tiny raw-SQL migration runner: `python -m atlas.store.migrate`.
+"""Tiny raw-SQL migration runner: `python -m atlas.store.migrate [url] [--wait SECONDS]`.
+
+The api container runs it before starting uvicorn; ``--wait`` (default 60s) retries the
+connection while Postgres is still starting.
 
 Applies atlas/store/migrations/NNNN_*.sql in filename order, each in its own transaction,
 recording applied files in schema_migrations. Safe to run concurrently (advisory lock) and
@@ -8,6 +11,7 @@ repeatedly (already-applied files are skipped). Chosen over Alembic for speed/re
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import psycopg
@@ -38,12 +42,35 @@ def migrate(database_url: str) -> list[str]:
     return applied_now
 
 
-def main() -> None:
+def wait_for_database(database_url: str, timeout_s: float = 60.0, interval_s: float = 1.0) -> None:
+    """Block until a connection succeeds, or re-raise the last error after ``timeout_s``."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            with psycopg.connect(database_url, connect_timeout=5):
+                return
+        except psycopg.OperationalError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(interval_s)
+
+
+def main(argv: list[str] | None = None) -> None:
+    import argparse
+
     from atlas.config import get_settings
 
-    url = sys.argv[1] if len(sys.argv) > 1 else get_settings().database_url
-    for name in migrate(url):
+    parser = argparse.ArgumentParser(prog="python -m atlas.store.migrate")
+    parser.add_argument("url", nargs="?", default=None, help="database URL (default: DATABASE_URL)")
+    parser.add_argument("--wait", type=float, default=60.0, help="seconds to wait for Postgres")
+    args = parser.parse_args(argv)
+    url = args.url or get_settings().database_url
+    wait_for_database(url, args.wait)
+    applied = migrate(url)
+    for name in applied:
         print(f"applied {name}")
+    if not applied:
+        print("schema up to date", file=sys.stderr)
 
 
 if __name__ == "__main__":
