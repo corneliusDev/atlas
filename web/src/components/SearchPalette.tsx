@@ -13,14 +13,30 @@ interface Props {
   debounceMs?: number;
 }
 
+const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#x27;": "'", "&#39;": "'" };
+const unescapeHtml = (s: string) => s.replace(/&(?:amp|lt|gt|quot|#x27|#39);/g, (e) => ENTITIES[e] ?? e);
+
+/** Server snippets are HTML-escaped text with matches in <mark> (OpenAPI SearchHit.snippet).
+ * They are parsed into React nodes, never injected as HTML. Plain snippets fall back to
+ * highlighting the query terms client-side. */
 function Highlighted({ text, query }: { text: string; query: string }) {
+  if (text.includes("<mark>")) {
+    const parts = text.split(/<\/?mark>/);
+    return (
+      <>
+        {parts.map((p, i) =>
+          i % 2 === 1 ? <mark key={i}>{unescapeHtml(p)}</mark> : <Fragment key={i}>{unescapeHtml(p)}</Fragment>,
+        )}
+      </>
+    );
+  }
   const terms = query
     .toLowerCase()
     .split(/\s+/)
     .filter((t) => t.length > 1)
     .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  if (!terms.length) return <>{text}</>;
-  const parts = text.split(new RegExp(`(${terms.join("|")})`, "gi"));
+  if (!terms.length) return <>{unescapeHtml(text)}</>;
+  const parts = unescapeHtml(text).split(new RegExp(`(${terms.join("|")})`, "gi"));
   return (
     <>
       {parts.map((p, i) => (i % 2 === 1 ? <mark key={i}>{p}</mark> : <Fragment key={i}>{p}</Fragment>))}

@@ -1,6 +1,6 @@
 import { useId } from "react";
 import type { ClusterInfo } from "../api/types";
-import { DEFAULT_FILTERS, isFiltered, type Filters } from "../lib/filters";
+import { DEFAULT_FILTERS, isFiltered, type Filters, type Origin } from "../lib/filters";
 
 interface Props {
   filters: Filters;
@@ -13,11 +13,16 @@ interface Props {
   onZoomCluster?: (clusterId: string) => void;
 }
 
-function toggle(list: string[], value: string): string[] {
+const SOURCES: { value: Origin; label: string }[] = [
+  { value: "vault", label: "Vault folder" },
+  { value: "upload", label: "Uploaded" },
+];
+
+function toggle<T extends string>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
-/** GR-5 filters (cluster, tag, similarity threshold, topic and ghost layers) + GR-4 depth. */
+/** GR-5 filters (source, date, cluster, tag, similarity threshold, topic and ghost layers) + GR-4 depth. */
 export function FiltersPanel({ filters, onChange, clusters, tags, mode, depth, onDepthChange, onZoomCluster }: Props) {
   const id = useId();
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
@@ -85,6 +90,25 @@ export function FiltersPanel({ filters, onChange, clusters, tags, mode, depth, o
           Show unwritten notes
         </label>
       </fieldset>
+
+      {mode === "global" && (
+        <fieldset className="field">
+          <legend className="field-label">Source</legend>
+          {SOURCES.map((o) => (
+            <label key={o.value} className="check">
+              <input type="checkbox" checked={filters.origins.includes(o.value)} onChange={() => set({ origins: toggle(filters.origins, o.value) })} />
+              {o.label}
+            </label>
+          ))}
+        </fieldset>
+      )}
+
+      <div className="field">
+        <label htmlFor={`${id}-since`} className="field-label">
+          Indexed since
+        </label>
+        <input id={`${id}-since`} type="date" value={filters.indexedSince} onChange={(e) => set({ indexedSince: e.target.value })} />
+      </div>
 
       {clusters.length > 0 && (
         <fieldset className="field">

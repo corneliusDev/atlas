@@ -15,6 +15,8 @@ describe("SearchPalette", () => {
     expect(options.length).toBeGreaterThan(0);
     expect(options[0]).toHaveAttribute("aria-selected", "true");
     expect(screen.getAllByText(/churn/i, { selector: "mark" }).length).toBeGreaterThan(0);
+    // Server snippets carry <mark> markup: it must render as elements, never as literal text.
+    for (const o of options) expect(o.textContent).not.toMatch(/<\/?mark>|&lt;|&amp;/);
     await waitFor(() => expect(onResults).toHaveBeenLastCalledWith("churn", expect.arrayContaining([expect.objectContaining({ document_id: expect.any(String) })])));
   });
 

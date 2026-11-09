@@ -7,7 +7,13 @@ export interface Filters {
   minScore: number;
   showTopics: boolean;
   showGhosts: boolean;
+  /** File source ("file type" in GR-5): vault folder vs. uploaded. Empty = both. */
+  origins: Origin[];
+  /** Only documents indexed on or after this day (yyyy-mm-dd); "" = any date. */
+  indexedSince: string;
 }
+
+export type Origin = "vault" | "upload";
 
 export const DEFAULT_FILTERS: Filters = {
   clusters: [],
@@ -15,10 +21,12 @@ export const DEFAULT_FILTERS: Filters = {
   minScore: 0,
   showTopics: true,
   showGhosts: true,
+  origins: [],
+  indexedSince: "",
 };
 
 export function isFiltered(f: Filters): boolean {
-  return f.clusters.length > 0 || f.tags.length > 0 || f.minScore > 0 || !f.showTopics || !f.showGhosts;
+  return f.clusters.length > 0 || f.tags.length > 0 || f.minScore > 0 || !f.showTopics || !f.showGhosts || f.origins.length > 0 || f.indexedSince !== "";
 }
 
 export function layersFor(f: Filters): NodeKind[] {
@@ -35,11 +43,19 @@ export function toGraphQuery(f: Filters): GraphQuery {
     tags: f.tags,
     clusters: f.clusters,
     minScore: f.minScore,
+    origins: f.origins.length ? f.origins : undefined,
+    indexedAfter: f.indexedSince ? sinceIso(f.indexedSince) : undefined,
   };
+}
+
+/** Start of the chosen day in the viewer's timezone, as an ISO instant. */
+export function sinceIso(day: string): string {
+  return new Date(`${day}T00:00:00`).toISOString();
 }
 
 /**
  * Local graph: the route takes only a center and depth, so filters apply client-side.
+ * Nodes carry no origin, so the source filter applies to the global graph only.
  * The center node is always kept; topic/ghost nodes are dropped once they lose every edge.
  */
 export function filterView(view: GraphView, f: Filters): GraphView {
@@ -47,6 +63,7 @@ export function filterView(view: GraphView, f: Filters): GraphView {
   const layers = new Set(layersFor(f));
   const clusters = new Set(f.clusters);
   const tags = new Set(f.tags);
+  const since = f.indexedSince ? Date.parse(sinceIso(f.indexedSince)) : null;
   const keep = new Set<string>();
   for (const n of view.nodes) {
     if (n.key === center) {
@@ -57,6 +74,7 @@ export function filterView(view: GraphView, f: Filters): GraphView {
     if (n.ref.kind === "document") {
       if (clusters.size && !(n.cluster_id && clusters.has(n.cluster_id))) continue;
       if (tags.size && !n.tags.some((t) => tags.has(t))) continue;
+      if (since !== null && !(n.indexed_at && Date.parse(n.indexed_at) >= since)) continue;
     }
     keep.add(n.key);
   }

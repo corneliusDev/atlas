@@ -45,6 +45,14 @@ describe("filters", () => {
     expect(toGraphQuery({ ...DEFAULT_FILTERS, showTopics: false }).layers).toEqual(["document", "ghost"]);
   });
 
+  it("sends source and date filters to the server (GR-5)", () => {
+    const q = toGraphQuery({ ...DEFAULT_FILTERS, origins: ["upload"], indexedSince: "2026-11-01" });
+    expect(q.origins).toEqual(["upload"]);
+    expect(q.indexedAfter).toBe(new Date("2026-11-01T00:00:00").toISOString());
+    expect(toGraphQuery(DEFAULT_FILTERS).origins).toBeUndefined();
+    expect(toGraphQuery(DEFAULT_FILTERS).indexedAfter).toBeUndefined();
+  });
+
   it("filters a local graph client-side but always keeps the centre", () => {
     const center = globalGraph(ALL_FILTERS).nodes.find((n) => n.ref.kind === "document" && n.degree > 2)!;
     const local = localGraph(center.key, 2)!;

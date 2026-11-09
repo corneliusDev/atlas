@@ -539,7 +539,11 @@ function snippetFor(text: string, terms: string[]): string {
   const at = Math.min(...terms.map((t) => lower.indexOf(t)).filter((i) => i >= 0), text.length);
   const start = Math.max(0, at - 60);
   const s = text.slice(start, start + 180);
-  return `${start > 0 ? "…" : ""}${s}${start + 180 < text.length ? "…" : ""}`;
+  // Same shape as the api (ts_headline): HTML-escaped text, matches wrapped in <mark>.
+  const escaped = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const pattern = terms.filter((t) => t.length > 1).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const marked = pattern.length ? escaped.replace(new RegExp(`(${pattern.join("|")})`, "gi"), "<mark>$1</mark>") : escaped;
+  return `${start > 0 ? "…" : ""}${marked}${start + 180 < text.length ? "…" : ""}`;
 }
 
 // ---------------------------------------------------------------------------------------------
