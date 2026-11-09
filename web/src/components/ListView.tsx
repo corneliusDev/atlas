@@ -28,15 +28,21 @@ export function ListView({ view, selectedKey, highlightKeys, onSelect }: Props) 
   const clusterLabel = useMemo(() => new Map(view.clusters.map((c) => [c.id, c])), [view.clusters]);
   const neighbors = useMemo(() => {
     const byKey = new Map(view.nodes.map((n) => [n.key, n]));
-    const map = new Map<string, GraphNode[]>();
+    // A pair can be joined by several edges (a wiki link and a semantic link), so dedupe by key.
+    const map = new Map<string, Map<string, GraphNode>>();
+    const add = (from: GraphNode, to: GraphNode) => {
+      const m = map.get(from.key) ?? new Map<string, GraphNode>();
+      m.set(to.key, to);
+      map.set(from.key, m);
+    };
     for (const e of view.edges) {
       const s = byKey.get(e.source);
       const t = byKey.get(e.target);
-      if (!s || !t) continue;
-      map.set(s.key, [...(map.get(s.key) ?? []), t]);
-      map.set(t.key, [...(map.get(t.key) ?? []), s]);
+      if (!s || !t || s.key === t.key) continue;
+      add(s, t);
+      add(t, s);
     }
-    return map;
+    return new Map([...map].map(([k, m]) => [k, [...m.values()]]));
   }, [view]);
 
   const rows = useMemo(() => {

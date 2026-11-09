@@ -37,6 +37,8 @@ export function errorText(e: IngestError): string {
   }
 }
 
+const plural = (n: number, word: string) => (n === 1 ? word : `${word}s`);
+
 const fileName = (path: string) => path.split("/").pop() ?? path;
 
 function FileRow({ f, onOpenDocument }: { f: FileProgress; onOpenDocument: Props["onOpenDocument"] }) {
@@ -98,8 +100,9 @@ export function ProgressTray({ status, ignored, summary, onDismiss, onOpenDocume
           {summary && inFlight === 0 && (
             <div className="tray-summary">
               <p className="tray-summary-line">
-                <strong>{summary.stats.documents}</strong> documents, <strong>{summary.stats.clusters}</strong> themes,{" "}
-                <strong>{summary.stats.links}</strong> connections
+                <strong>{summary.stats.documents}</strong> {plural(summary.stats.documents, "document")},{" "}
+                <strong>{summary.stats.clusters}</strong> {plural(summary.stats.clusters, "theme")},{" "}
+                <strong>{summary.stats.links}</strong> {plural(summary.stats.links, "connection")}
               </p>
               {summary.topClusters.length > 0 && (
                 <div className="tray-themes">

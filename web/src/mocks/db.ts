@@ -99,7 +99,8 @@ interface Db {
   clock: number;
 }
 
-let db: Db = seed(false);
+// Assigned at the end of the module, once every helper and constant `seed` uses exists.
+let db: Db;
 
 const BASE_TIME = Date.parse("2026-11-01T09:00:00Z");
 
@@ -678,3 +679,5 @@ function indexUpload(job: MockJob): string {
   for (const { d } of overlap.slice(0, 2)) db.links.push(makeLink(doc, d, 0.7, "Shares vocabulary with this note."));
   return id;
 }
+
+db = seed(false);
