@@ -159,7 +159,7 @@ class Indexed(Frozen):
     kind: Literal["indexed"] = "indexed"
     document_id: DocumentId
     path: VaultPath
-    link_count: int
+    link_count: int  # semantic links written for this document (wiki links not counted)
     topic_count: int
     cluster_id: ClusterId | None  # None until the first Recluster creates clusters
 
@@ -286,6 +286,7 @@ class WikiLink(Frozen):
     source: DocumentId
     target_name: str  # resolved at read time; may stay unresolved
     anchor: str | None  # [[Note#Heading]]
+    alias: str | None = None  # [[Note|alias]] (display text; stored in wiki_links.alias)
 
 
 Link = Annotated[SemanticLink | WikiLink, Field(discriminator="kind")]
@@ -372,7 +373,8 @@ class ParsedNote(Frozen):
     headings: tuple[Heading, ...]
     body: str  # markdown after frontmatter (rendering / chunking source)
     body_text: str  # text for embedding: code blocks, images, html comments stripped
-    content_hash: ContentHash  # sha256 hex of the raw file bytes
+    content_hash: ContentHash  # sha256 hex of the raw file bytes (pipeline.content_hash_of);
+    # parse_markdown only sees text, so IngestPipeline overwrites it with the byte hash.
 
 
 class Chunk(Frozen):
@@ -544,9 +546,9 @@ class DocumentAggregate(Frozen):
     frontmatter: dict[str, Any]
     tags: tuple[str, ...]
     summary: str | None  # None when the LLM failed/refused or embeddings-only mode
-    doc_embedding: Embedding
+    doc_embedding: Embedding  # normalised mean of the chunk embeddings (works in embeddings-only mode)
     chunks: tuple[EmbeddedChunk, ...]
-    topics: tuple[EmbeddedTopic, ...]
+    topics: tuple[EmbeddedTopic, ...]  # LLM topics + one TAG topic per note tag (store never derives from tags)
     topic_merge_threshold: float = 0.88
     wiki_links: tuple[WikiLink, ...]
     semantic_links: tuple[SemanticLink, ...]

@@ -13,7 +13,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Protocol, Sequence, assert_never
+from typing import TYPE_CHECKING, Callable, Literal, Sequence, assert_never
 
 import numpy as np
 import numpy.typing as npt
@@ -26,6 +26,7 @@ from atlas.ports import (
     ClusterRepository,
     DocumentRepository,
     EmbeddingModel,
+    FileReader,
     LanguageModel,
     ModelTimeoutError,
     ModelUnavailableError,
@@ -76,13 +77,7 @@ if TYPE_CHECKING:
 Origin = Literal["vault", "upload"]
 
 
-# ---- File access ----------------------------------------------------------------------------
-class FileReader(Protocol):
-    """Reads a job's file bytes. Returns None when the file does not exist (vanished)."""
-
-    def read(self, vault: VaultId, path: VaultPath, origin: Origin) -> bytes | None: ...
-
-
+# ---- File access (port: atlas.ports.FileReader) ------------------------------------------------
 @dataclass(frozen=True)
 class FsFileReader:
     """Reads vault files from ``vault_root`` (read-only mount) and uploads from
@@ -258,7 +253,7 @@ class IngestPipelineImpl:
             topics=topics,
             topic_merge_threshold=cfg.topic_merge_threshold,
             wiki_links=tuple(
-                WikiLink(source=doc_id, target_name=w.target_name, anchor=w.anchor) for w in note.wikilinks
+                WikiLink(source=doc_id, target_name=w.target_name, anchor=w.anchor, alias=w.alias) for w in note.wikilinks
             ),
             semantic_links=semantic_links,
             cluster_id=cluster_id,

@@ -17,6 +17,7 @@ from atlas.types import (
     ContentHash,
     DocumentAggregate,
     DocumentId,
+    DocumentOrigin,
     DocumentVector,
     Embedding,
     EmbeddedTopic,
@@ -42,6 +43,13 @@ class PgDocumentRepository:
         self._pool = pool
 
     # ---- reads ---------------------------------------------------------------------
+    def stored_hashes(self, vault: VaultId, origin: DocumentOrigin) -> dict[VaultPath, ContentHash]:
+        with self._pool.connection() as conn:
+            rows = conn.execute(
+                "SELECT path, content_hash FROM documents WHERE vault_id = %s AND origin = %s", (vault, origin)
+            ).fetchall()
+        return {VaultPath(p): ContentHash(h) for p, h in rows}
+
     def current_hash(self, vault: VaultId, path: VaultPath) -> ContentHash | None:
         with self._pool.connection() as conn:
             row = conn.execute(
@@ -224,15 +232,15 @@ class PgDocumentRepository:
     def _replace_wiki_links(conn: psycopg.Connection, a: DocumentAggregate) -> None:
         conn.execute("DELETE FROM wiki_links WHERE source_doc_id = %s", (a.document_id,))
         rows = [
-            (a.document_id, w.target_name, _key(w.target_name), w.anchor, i)
+            (a.document_id, w.target_name, _key(w.target_name), w.anchor, w.alias, i)
             for i, w in enumerate(a.wiki_links)
             if _key(w.target_name)
         ]
         if rows:
             with conn.cursor() as cur:
                 cur.executemany(
-                    "INSERT INTO wiki_links (source_doc_id, target_name, target_key, anchor, ordinal)"
-                    " VALUES (%s, %s, %s, %s, %s)",
+                    "INSERT INTO wiki_links (source_doc_id, target_name, target_key, anchor, alias, ordinal)"
+                    " VALUES (%s, %s, %s, %s, %s, %s)",
                     rows,
                 )
 

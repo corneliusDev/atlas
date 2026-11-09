@@ -23,6 +23,7 @@ from atlas.types import (
     ContentHash,
     Depth,
     DocumentAggregate,
+    DocumentOrigin,
     DocumentPair,
     DocumentVector,
     Embedding,
@@ -56,6 +57,7 @@ __all__ = [
     "ClusterRepository",
     "DocumentRepository",
     "EmbeddingModel",
+    "FileReader",
     "GraphService",
     "IngestPipeline",
     "JobQueue",
@@ -103,6 +105,14 @@ class VaultScanner(Protocol):
     def scan(self, vault: VaultId) -> ScanReport: ...  # enqueues Upsert / Remove for changed paths only
 
 
+# ---- File access ----------------------------------------------------------------
+class FileReader(Protocol):
+    """Reads a job's file bytes (vault mount or uploads dir). None when the file does not exist
+    (vanished between enqueue and run)."""
+
+    def read(self, vault: VaultId, path: VaultPath, origin: DocumentOrigin) -> bytes | None: ...
+
+
 # ---- Pipeline (the one deep module) ------------------------------------------
 class IngestPipeline(Protocol):
     def run(self, job: IngestJob) -> IngestOutcome | IngestError: ...
@@ -134,6 +144,7 @@ class DocumentRepository(Protocol):
     def save_document(self, aggregate: DocumentAggregate, expected_hash: ContentHash | None) -> SaveResult: ...
     def delete_document(self, vault: VaultId, path: VaultPath) -> None: ...  # no-op when absent
     def all_document_vectors(self, vault: VaultId) -> list[DocumentVector]: ...
+    def stored_hashes(self, vault: VaultId, origin: DocumentOrigin) -> dict[VaultPath, ContentHash]: ...  # VaultScanner diff
 
 
 class ClusterRepository(Protocol):
@@ -143,6 +154,7 @@ class ClusterRepository(Protocol):
 
 class LinkFeedbackRepository(Protocol):
     def record(self, vault: VaultId, pair: DocumentPair, verdict: LinkVerdict) -> None: ...  # upsert, idempotent
+    # Raises LookupError (store: UnknownDocumentError) when either document is not in the vault -> HTTP 404.
 
 
 # ---- Read side (api) --------------------------------------------------------------

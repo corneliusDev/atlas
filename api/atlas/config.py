@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     job_lease_s: int = 300
     job_max_attempts: int = 3
     worker_poll_s: float = 1.0
+    worker_concurrency: int = 2  # job threads per worker process (env WORKER_CONCURRENCY)
 
     def require_llm_key(self) -> None:
         """Called at api/worker startup: missing key is fatal unless embeddings-only."""

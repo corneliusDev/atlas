@@ -43,6 +43,10 @@ ATLAS_TEST_DATABASE_URL=postgresql://atlas:atlas@localhost:5432/atlas .venv/bin/
 # Run the API locally
 .venv/bin/uvicorn atlas.http.app:app --reload --port 8000     # docs at /api/docs
 
+# Run the worker locally (scan VAULT_ROOT, drain the queue, recluster, exit). Env: DATABASE_URL,
+# OLLAMA_URL, VAULT_ROOT, UPLOADS_ROOT, WORKER_CONCURRENCY (default 2), ATLAS_EMBEDDINGS_ONLY.
+ATLAS_EMBEDDINGS_ONLY=1 VAULT_ROOT=../samples/vault .venv/bin/python -m atlas.worker --exit-when-idle
+
 # Regenerate the OpenAPI contract after changing routes/DTOs (repo root)
 api/.venv/bin/python scripts/export_openapi.py
 

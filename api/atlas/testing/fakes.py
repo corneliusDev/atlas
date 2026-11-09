@@ -25,6 +25,7 @@ from atlas.types import (
     ClusterSample,
     ContentHash,
     DocumentAggregate,
+    DocumentOrigin,
     DocumentPair,
     DocumentVector,
     Embedding,
@@ -174,6 +175,9 @@ class InMemoryDocumentRepository:
 
     def delete_document(self, vault: VaultId, path: VaultPath) -> None:
         self.docs.pop((vault, path), None)
+
+    def stored_hashes(self, vault: VaultId, origin: DocumentOrigin) -> dict[VaultPath, ContentHash]:
+        return {p: d.content_hash for (v, p), d in self.docs.items() if v == vault and d.origin == origin}
 
     def all_document_vectors(self, vault: VaultId) -> list[DocumentVector]:
         return [
