@@ -179,7 +179,7 @@ def test_api_dockerfile() -> None:
     assert froms == ["python:3.12-slim", "python:3.12-slim"]  # multi-stage
     users = re.findall(r"^USER\s+(\S+)", text, flags=re.M)
     assert users and not users[-1].startswith(("root", "0"))
-    assert "python -m atlas.store.migrate" in text and "uvicorn atlas.http.app:app" in text
+    assert "python -m atlas.store.migrate" in text and "uvicorn --factory atlas.http.composition:create_production_app" in text
     assert "--port 8000" in text
 
 

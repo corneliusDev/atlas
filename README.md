@@ -41,7 +41,7 @@ docker run -d --name atlas-dev-db -e POSTGRES_DB=atlas -e POSTGRES_USER=atlas -e
 ATLAS_TEST_DATABASE_URL=postgresql://atlas:atlas@localhost:5432/atlas .venv/bin/pytest -q -m db
 
 # Run the API locally
-.venv/bin/uvicorn atlas.http.app:app --reload --port 8000     # docs at /api/docs
+.venv/bin/uvicorn --factory atlas.http.composition:create_production_app --reload --port 8000  # docs at /api/docs (needs Postgres)
 
 # Run the worker locally (scan VAULT_ROOT, drain the queue, recluster, exit). Env: DATABASE_URL,
 # OLLAMA_URL, VAULT_ROOT, UPLOADS_ROOT, WORKER_CONCURRENCY (default 2), ATLAS_EMBEDDINGS_ONLY.

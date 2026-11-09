@@ -40,4 +40,4 @@ USER atlas:atlas
 EXPOSE 8000
 
 # api: apply migrations (idempotent, advisory-locked), then serve. The worker overrides this.
-CMD ["sh", "-c", "python -m atlas.store.migrate && exec uvicorn atlas.http.app:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'"]
+CMD ["sh", "-c", "python -m atlas.store.migrate && exec uvicorn --factory atlas.http.composition:create_production_app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'"]
