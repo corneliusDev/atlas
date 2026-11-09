@@ -455,6 +455,37 @@
             "title": "Path",
             "type": "string"
           },
+          "stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  "reading",
+                  "parsing",
+                  "embedding",
+                  "enriching",
+                  "linking",
+                  "saving"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
           "status": {
             "$ref": "#/components/schemas/FileStatus"
           },
@@ -472,7 +503,9 @@
           "attempts",
           "error",
           "outcome",
-          "updated_at"
+          "updated_at",
+          "stage",
+          "started_at"
         ],
         "title": "FileProgress",
         "type": "object"
@@ -982,6 +1015,18 @@
       },
       "JobsStatusResponse": {
         "properties": {
+          "avg_seconds_per_file": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mean (finished_at - started_at) over the most recent up to 20 done upsert jobs; null if none",
+            "title": "Avg Seconds Per File"
+          },
           "counts": {
             "additionalProperties": {
               "type": "integer"
@@ -1027,7 +1072,8 @@
           "files",
           "recent_failures",
           "recluster_pending",
-          "idle"
+          "idle",
+          "avg_seconds_per_file"
         ],
         "title": "JobsStatusResponse",
         "type": "object"

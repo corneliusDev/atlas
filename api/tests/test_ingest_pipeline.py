@@ -344,3 +344,35 @@ def test_every_timeout_step_maps_through(step: str) -> None:
     h.embed.fail_with = ModelTimeoutError(step)  # type: ignore[arg-type]
     p = h.files.put("a.md", NOTE)
     assert h.pipeline.run(upsert(p)) == ModelTimeout(step=step)
+
+
+# ---- Stage reporting (UP-4 live progress) -----------------------------------------------------
+def test_upsert_reports_the_six_stages_in_order_each_before_its_work() -> None:
+    h = make()
+    p = h.files.put("notes/a.md", NOTE)
+    seen: list[str] = []
+    saved_at: list[int] = []
+    real_save = h.docs.save_document
+
+    def save(aggregate, expected_hash):  # type: ignore[no-untyped-def]
+        saved_at.append(len(seen))
+        return real_save(aggregate, expected_hash)
+
+    h.docs.save_document = save  # type: ignore[method-assign]
+    out = h.pipeline.run(upsert(p), seen.append)
+    assert isinstance(out, Indexed)
+    assert seen == ["reading", "parsing", "embedding", "enriching", "linking", "saving"]
+    assert saved_at == [6]  # "saving" is reported before the write transaction
+
+
+def test_unchanged_upsert_reports_only_reading_and_other_jobs_report_nothing() -> None:
+    h = make()
+    p = h.files.put("notes/a.md", NOTE)
+    assert isinstance(h.pipeline.run(upsert(p)), Indexed)  # default reporter is a no-op
+    seen: list[str] = []
+    assert isinstance(h.pipeline.run(upsert(p), seen.append), Skipped)
+    assert seen == ["reading"]
+    seen.clear()
+    assert isinstance(h.pipeline.run(Recluster(vault=V), seen.append), Reclustered)
+    assert isinstance(h.pipeline.run(Remove(vault=V, path=p), seen.append), Removed)
+    assert seen == []

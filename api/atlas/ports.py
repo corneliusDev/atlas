@@ -29,6 +29,7 @@ from atlas.types import (
     Embedding,
     GraphFilters,
     GraphView,
+    IndexStage,
     IngestError,
     IngestJob,
     IngestOutcome,
@@ -67,6 +68,7 @@ __all__ = [
     "ModelTimeoutError",
     "ModelUnavailableError",
     "SearchService",
+    "StageReporter",
     "VaultScanner",
 ]
 
@@ -99,6 +101,7 @@ class JobQueue(Protocol):
     def claim(self, lease: timedelta) -> ClaimedJob | None: ...
     def complete(self, job_id: JobId, outcome: IngestOutcome) -> None: ...
     def fail(self, job_id: JobId, error: IngestError) -> RetryDecision: ...
+    def report_stage(self, job_id: JobId, stage: IndexStage) -> None: ...  # best-effort; never raises
 
 
 class VaultScanner(Protocol):
@@ -114,8 +117,19 @@ class FileReader(Protocol):
 
 
 # ---- Pipeline (the one deep module) ------------------------------------------
+class StageReporter(Protocol):
+    """Receives the stage an Upsert is entering. Must not raise (the worker's reporter writes
+    jobs.stage best-effort)."""
+
+    def __call__(self, stage: IndexStage) -> None: ...
+
+
+def no_stage_report(stage: IndexStage) -> None:
+    """Default StageReporter: discards progress."""
+
+
 class IngestPipeline(Protocol):
-    def run(self, job: IngestJob) -> IngestOutcome | IngestError: ...
+    def run(self, job: IngestJob, report: StageReporter = no_stage_report) -> IngestOutcome | IngestError: ...
 
 
 # ---- Model ports ---------------------------------------------------------------

@@ -16,6 +16,13 @@ import type {
 
 export const API_BASE = "/api";
 
+export interface UploadOptions {
+  vault?: string;
+  /** Bytes of the multipart body sent so far (only when the browser can compute the total). */
+  onProgress?: (loaded: number, total: number) => void;
+  signal?: AbortSignal;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -109,11 +116,55 @@ export const api = {
     });
   },
 
-  upload(files: readonly File[], vault?: string): Promise<UploadResponse> {
+  /**
+   * POST /api/uploads with real byte progress. Uses XMLHttpRequest because fetch cannot report
+   * upload progress; resolves to the same UploadResponse and rejects with ApiError like `request`.
+   */
+  upload(files: readonly File[], opts: UploadOptions = {}): Promise<UploadResponse> {
     const form = new FormData();
     for (const f of files) form.append("files", f, relativePath(f));
-    if (vault) form.append("vault", vault);
-    return request(apiUrl("/uploads"), { method: "POST", body: form });
+    if (opts.vault) form.append("vault", opts.vault);
+    return new Promise<UploadResponse>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", apiUrl("/uploads"));
+      xhr.setRequestHeader("Accept", "application/json");
+      if (opts.onProgress) {
+        const report = opts.onProgress;
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) report(e.loaded, e.total);
+        });
+        // Every byte is out; the server is now reading and enqueueing.
+        xhr.upload.addEventListener("load", (e) => {
+          const total = e.lengthComputable && e.total > 0 ? e.total : 1;
+          report(total, total);
+        });
+      }
+      xhr.addEventListener("load", () => {
+        let body: unknown = null;
+        try {
+          body = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch {
+          /* non-JSON body */
+        }
+        if (xhr.status >= 200 && xhr.status < 300 && body) {
+          resolve(body as UploadResponse);
+          return;
+        }
+        const detail = (body as { detail?: unknown } | null)?.detail;
+        const text = typeof detail === "string" ? detail : detail !== undefined ? JSON.stringify(detail) : xhr.statusText || "upload failed";
+        reject(new ApiError(xhr.status, text));
+      });
+      xhr.addEventListener("error", () => reject(new ApiError(0, "network error, the upload did not reach the server")));
+      xhr.addEventListener("abort", () => reject(new ApiError(0, "upload cancelled")));
+      if (opts.signal) {
+        if (opts.signal.aborted) {
+          reject(new ApiError(0, "upload cancelled"));
+          return;
+        }
+        opts.signal.addEventListener("abort", () => xhr.abort(), { once: true });
+      }
+      xhr.send(form);
+    });
   },
 
   jobsStatus(vault?: string, signal?: AbortSignal): Promise<JobsStatusResponse> {

@@ -1,5 +1,6 @@
 import { Suspense, lazy, useMemo } from "react";
 import type { GraphCanvasProps } from "./GraphCanvas";
+import { GraphOverlay } from "./GraphOverlay";
 
 const GraphCanvas = lazy(() => import("./GraphCanvas"));
 
@@ -31,7 +32,7 @@ export function GraphArea({ onShowList, ...canvas }: Props) {
     );
   }
   return (
-    <Suspense fallback={<div className="graph-fallback" aria-busy="true">Loading graph…</div>}>
+    <Suspense fallback={<GraphOverlay state={{ kind: "loading" }} />}>
       <GraphCanvas {...canvas} />
     </Suspense>
   );

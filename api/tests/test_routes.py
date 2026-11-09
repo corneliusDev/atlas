@@ -127,7 +127,8 @@ class FakeScanner:
 class FakeJobs:
     def status(self, vault: VaultId, limit: int) -> JobsStatusResponse:
         return JobsStatusResponse(
-            vault=vault, counts={s: 0 for s in JobState}, files=[], recent_failures=[], recluster_pending=False, idle=True
+            vault=vault, counts={s: 0 for s in JobState}, files=[], recent_failures=[], recluster_pending=False, idle=True,
+            avg_seconds_per_file=None,
         )
 
 

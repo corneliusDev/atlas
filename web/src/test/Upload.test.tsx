@@ -67,7 +67,7 @@ describe("ProgressTray", () => {
     const status = await api.jobsStatus();
     render(<ProgressTray status={status} ignored={[]} summary={null} onDismiss={() => {}} onOpenDocument={() => {}} onZoomCluster={() => {}} />);
     expect(screen.getByText("Indexing 0 of 2 files")).toBeInTheDocument();
-    expect(screen.getAllByText("Indexing", { selector: ".status-pill" })).toHaveLength(2);
+    expect(screen.getAllByRole("list", { name: "Step 3 of 6: Embedding passages" })).toHaveLength(2);
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
     expect(screen.queryByRole("button", { name: "Dismiss progress" })).not.toBeInTheDocument();
   });

@@ -14,6 +14,16 @@ import FA2Layout from "graphology-layout-forceatlas2/worker";
 import type { GraphView } from "../../api/types";
 import type { ResolvedTheme } from "../../hooks/useTheme";
 import { DARK_PALETTE, LIGHT_PALETTE, buildGraph, type AtlasGraph, type EdgeAttrs, type NodeAttrs } from "../../lib/graphModel";
+import {
+  incrementalBudgetMs,
+  isFreshLayout,
+  layoutBudgetMs,
+  layoutProgress,
+  plural,
+  prefersReducedMotion,
+  reducedMotionIterations,
+} from "../../lib/progress";
+import { GraphOverlay } from "./GraphOverlay";
 import { NodeDashedProgram } from "./NodeDashedProgram";
 
 export interface FocusRequest {
@@ -36,7 +46,29 @@ export interface GraphCanvasProps {
   focus: FocusRequest | null;
   onSelectNode: (key: string, label: string) => void;
   onSelectEdge: (edge: EdgeSelection) => void;
+  /** Live indexing: pulse nodes that appear on a data refresh and show a "+N new notes" pill. */
+  markNewNodes?: boolean;
 }
+
+interface Arranging {
+  start: number;
+  budget: number;
+  notes: number;
+  links: number;
+  leaving: boolean;
+}
+
+interface Pulse {
+  keys: ReadonlySet<string>;
+  start: number;
+  until: number;
+  still: boolean;
+}
+
+const PULSE_MS = 2600;
+const PULSE_PERIOD_MS = 800;
+const NEW_PILL_MS = 3600;
+const OVERLAY_FADE_MS = 400;
 
 interface Tooltip {
   key: string;
@@ -102,7 +134,12 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     theme: theme as ResolvedTheme,
     dragging: null as string | null,
     dragMoved: false,
+    pulse: null as Pulse | null,
   });
+  const pulseFrame = useRef<number | null>(null);
+  const [arranging, setArranging] = useState<Arranging | null>(null);
+  const [arrangeProgress, setArrangeProgress] = useState(0);
+  const [newNotes, setNewNotes] = useState<{ count: number; id: number } | null>(null);
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
   const [layoutRunning, setLayoutRunning] = useState(false);
 
@@ -112,6 +149,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     layoutRef.current?.kill();
     layoutRef.current = null;
     setLayoutRunning(false);
+    setArranging((a) => (a && !a.leaving ? { ...a, leaving: true } : a));
   }, []);
 
   const focusOn = useCallback((keys: string[], animate = true) => {
@@ -127,17 +165,30 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     sigma.getCamera().animate({ x, y, ratio }, { duration: animate ? 600 : 0 });
   }, []);
 
+  /**
+   * Runs ForceAtlas2 in the worker for `durationMs`. `announce` shows the "Arranging" overlay
+   * (fresh layouts only). With reduced motion the layout is computed in one step instead.
+   */
   const runLayout = useCallback(
-    (durationMs: number) => {
+    (durationMs: number, announce?: { notes: number; links: number }) => {
       const graph = graphRef.current;
       if (!graph || graph.order < 2) return;
       stopLayout();
+      const settings = { ...forceAtlas2.inferSettings(graph), barnesHutOptimize: graph.order > 400, slowDown: 4 };
+      if (prefersReducedMotion()) {
+        forceAtlas2.assign(graph, { iterations: reducedMotionIterations(graph.order), settings, getEdgeWeight: "weight" });
+        sigmaRef.current?.refresh();
+        return;
+      }
       try {
-        const settings = { ...forceAtlas2.inferSettings(graph), barnesHutOptimize: graph.order > 400, slowDown: 4 };
         const layout = new FA2Layout(graph, { settings, getEdgeWeight: "weight" });
         layoutRef.current = layout;
         layout.start();
         setLayoutRunning(true);
+        if (announce) {
+          setArrangeProgress(0);
+          setArranging({ start: performance.now(), budget: durationMs, notes: announce.notes, links: announce.links, leaving: false });
+        }
         layoutTimer.current = window.setTimeout(() => {
           stopLayout();
           if (lastFocus.current) focusOn(lastFocus.current.keys);
@@ -175,6 +226,18 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         const res: Partial<NodeDisplayData> = { ...data };
         const t = THEME[st.theme];
         const hl = st.highlights;
+        const pulse = st.pulse;
+        if (pulse && pulse.keys.has(node)) {
+          const now = performance.now();
+          if (now < pulse.until) {
+            const t = (now - pulse.start) / (pulse.until - pulse.start);
+            const wave = 0.5 - 0.5 * Math.cos(((now - pulse.start) / PULSE_PERIOD_MS) * 2 * Math.PI);
+            res.size = data.size * (pulse.still ? 1.45 : 1 + (0.25 + 0.6 * wave) * (1 - t));
+            res.highlighted = true;
+            res.forceLabel = true;
+            res.zIndex = 2;
+          }
+        }
         if (hl.size > 0) {
           if (hl.has(node)) {
             res.highlighted = true;
@@ -281,6 +344,8 @@ export default function GraphCanvas(props: GraphCanvasProps) {
 
     return () => {
       stopLayout();
+      if (pulseFrame.current !== null) window.cancelAnimationFrame(pulseFrame.current);
+      st.pulse = null;
       sigma.kill();
       sigmaRef.current = null;
       graphRef.current = null;
@@ -306,7 +371,7 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     const previous = new Map<string, { x: number; y: number }>();
     graph.forEachNode((key, attrs) => previous.set(key, { x: attrs.x, y: attrs.y }));
     const next = buildGraph(view, theme === "dark" ? DARK_PALETTE : LIGHT_PALETTE, previous);
-    const newNodes = next.filterNodes((key) => !previous.has(key)).length;
+    const added = next.filterNodes((key) => !previous.has(key));
     stopLayout();
     graph.clear();
     graph.import(next.export());
@@ -314,9 +379,64 @@ export default function GraphCanvas(props: GraphCanvasProps) {
     setTooltip(null);
     interaction.current.hovered = null;
     interaction.current.hoverNeighbors = new Set();
-    if (newNodes > 0) runLayout(Math.min(6000, 1500 + graph.order * 6));
+    // During live indexing every refresh adds a few notes; only an empty canvas gets the full overlay.
+    const live = !!callbacks.current.markNewNodes && previous.size > 0;
+    if (!live && isFreshLayout(previous.size, added.length, graph.order)) {
+      runLayout(layoutBudgetMs(graph.order), { notes: view.stats.documents, links: graph.size });
+    } else if (added.length > 0) {
+      // A few notes joined an arranged graph (live indexing): settle quietly, keep the camera.
+      runLayout(incrementalBudgetMs(graph.order));
+      if (callbacks.current.markNewNodes) {
+        startPulse(added);
+        const notes = added.filter((k) => graph.getNodeAttribute(k, "kind") === "document").length;
+        if (notes > 0) setNewNotes({ count: notes, id: Date.now() });
+      }
+    }
     sigma.refresh();
+    // startPulse is stable (refs only).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, theme, runLayout, stopLayout]);
+
+  // Pulse newly added nodes for a moment (a static enlargement with reduced motion).
+  function startPulse(keys: string[]) {
+    const st = interaction.current;
+    const still = prefersReducedMotion();
+    const start = performance.now();
+    st.pulse = { keys: new Set(keys), start, until: start + PULSE_MS, still };
+    if (pulseFrame.current !== null) window.cancelAnimationFrame(pulseFrame.current);
+    const frame = () => {
+      const sigma = sigmaRef.current;
+      if (!sigma || !st.pulse) return;
+      if (performance.now() >= st.pulse.until) {
+        st.pulse = null;
+        pulseFrame.current = null;
+        sigma.refresh({ skipIndexation: true });
+        return;
+      }
+      if (!still) sigma.refresh({ skipIndexation: true });
+      pulseFrame.current = window.requestAnimationFrame(frame);
+    };
+    pulseFrame.current = window.requestAnimationFrame(frame);
+  }
+
+  // Arranging overlay: advance the determinate bar while the layout runs, then fade out.
+  useEffect(() => {
+    if (!arranging) return;
+    if (arranging.leaving) {
+      setArrangeProgress(1);
+      const id = window.setTimeout(() => setArranging(null), OVERLAY_FADE_MS);
+      return () => window.clearTimeout(id);
+    }
+    const id = window.setInterval(() => setArrangeProgress(layoutProgress(performance.now() - arranging.start, arranging.budget)), 100);
+    return () => window.clearInterval(id);
+  }, [arranging]);
+
+  // "+N new notes" pill fades by itself.
+  useEffect(() => {
+    if (!newNotes) return;
+    const id = window.setTimeout(() => setNewNotes(null), NEW_PILL_MS);
+    return () => window.clearTimeout(id);
+  }, [newNotes]);
 
   // Selection and search highlights.
   useEffect(() => {
@@ -354,6 +474,14 @@ export default function GraphCanvas(props: GraphCanvasProps) {
         role="img"
         aria-label={`Graph of ${docs} documents, ${view.stats.topics} topics and ${view.stats.links} links. Use the list view for keyboard and screen reader access.`}
       />
+      {arranging && (
+        <GraphOverlay state={{ kind: "arranging", notes: arranging.notes, links: arranging.links, progress: arrangeProgress, leaving: arranging.leaving }} />
+      )}
+      {newNotes && (
+        <div key={newNotes.id} className="graph-new-pill" aria-hidden="true">
+          +{newNotes.count} new {plural(newNotes.count, "note")}
+        </div>
+      )}
       {tooltip && (
         <div className="graph-tooltip" style={{ left: tooltip.x, top: tooltip.y }} role="tooltip">
           <div className="graph-tooltip-title">{tooltip.label}</div>

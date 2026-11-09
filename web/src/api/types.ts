@@ -36,6 +36,8 @@ export type IgnoredFile = S["IgnoredFile"];
 
 export type JobsStatusResponse = S["JobsStatusResponse"];
 export type FileProgress = S["FileProgress"];
+/** Pipeline step of a file that is indexing (FileProgress.stage is non-null only while status === "indexing"). */
+export type IndexingStage = NonNullable<FileProgress["stage"]>;
 export type FileStatus = S["FileStatus"];
 export type JobFailure = S["JobFailure"];
 export type JobState = S["JobState"];

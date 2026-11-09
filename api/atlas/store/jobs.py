@@ -15,7 +15,9 @@ All timestamps come from the database clock.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
+
 import psycopg
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter
@@ -25,6 +27,7 @@ from atlas.types import (
     ClaimedJob,
     GaveUp,
     IngestError,
+    IndexStage,
     IngestJob,
     IngestOutcome,
     JobId,
@@ -34,6 +37,8 @@ from atlas.types import (
 )
 
 RECLUSTER_KEY = "__recluster__"
+
+log = logging.getLogger("atlas.store.jobs")
 
 _JOB: TypeAdapter[IngestJob] = TypeAdapter(IngestJob)
 _OUTCOME: TypeAdapter[IngestOutcome] = TypeAdapter(IngestOutcome)
@@ -105,7 +110,8 @@ class PgJobQueue:
                             FOR UPDATE OF j SKIP LOCKED
                         )
                         UPDATE jobs SET state = 'running', attempts = jobs.attempts + 1,
-                                        lease_until = now() + %(lease)s, updated_at = now()
+                                        lease_until = now() + %(lease)s, updated_at = now(),
+                                        started_at = now(), stage = 'reading'
                         FROM c WHERE jobs.id = c.id
                         RETURNING jobs.id, jobs.payload, jobs.attempts, jobs.lease_until
                         """,
@@ -139,7 +145,7 @@ class PgJobQueue:
                     UPDATE jobs SET
                         state = CASE WHEN e.attempts >= %(max)s THEN 'failed' ELSE 'pending' END,
                         finished_at = CASE WHEN e.attempts >= %(max)s THEN now() ELSE NULL END,
-                        run_after = now(), lease_until = NULL, updated_at = now()
+                        run_after = now(), lease_until = NULL, stage = NULL, updated_at = now()
                     FROM expired e
                     WHERE jobs.id = e.id AND e.id NOT IN (SELECT id FROM superseded)
                     """,
@@ -155,12 +161,25 @@ class PgJobQueue:
         with self._pool.connection() as conn, conn.transaction():
             conn.execute(
                 """
-                UPDATE jobs SET state = 'done', outcome = %s, lease_until = NULL,
+                UPDATE jobs SET state = 'done', outcome = %s, lease_until = NULL, stage = NULL,
                                 finished_at = now(), updated_at = now()
                 WHERE id = %s AND state = 'running'
                 """,
                 (Jsonb(_OUTCOME.dump_python(outcome, mode="json")), job_id),
             )
+
+    def report_stage(self, job_id: JobId, stage: IndexStage) -> None:
+        """Records the stage a running job is entering. One statement on its own pooled
+        connection, committed immediately (never part of a document transaction); best-effort: a DB error is logged and swallowed so a
+        progress write can never fail a job. No-op once the job is no longer running."""
+        try:
+            with self._pool.connection() as conn, conn.transaction():
+                conn.execute(
+                    "UPDATE jobs SET stage = %s WHERE id = %s AND state = 'running'",
+                    (stage, job_id),
+                )
+        except Exception:  # noqa: BLE001 - progress is best-effort by design
+            log.warning("could not record stage %s for job %s", stage, job_id, exc_info=True)
 
     def fail(self, job_id: JobId, error: IngestError) -> RetryDecision:
         err = Jsonb(_ERROR.dump_python(error, mode="json"))
@@ -181,7 +200,7 @@ class PgJobQueue:
             if not type(error).retryable or attempts >= self.max_attempts:
                 conn.execute(
                     """
-                    UPDATE jobs SET state = 'failed', last_error = %s, lease_until = NULL,
+                    UPDATE jobs SET state = 'failed', last_error = %s, lease_until = NULL, stage = NULL,
                                     finished_at = now(), updated_at = now()
                     WHERE id = %s
                     """,
@@ -199,7 +218,7 @@ class PgJobQueue:
                 # carries the latest payload and is the retry.
                 conn.execute(
                     """
-                    UPDATE jobs SET state = 'failed', last_error = %s, lease_until = NULL,
+                    UPDATE jobs SET state = 'failed', last_error = %s, lease_until = NULL, stage = NULL,
                                     finished_at = now(), updated_at = now()
                     WHERE id = %s
                     """,
@@ -210,7 +229,7 @@ class PgJobQueue:
             delay = min(self.base_backoff * (2**attempts), self.max_backoff)
             updated = conn.execute(
                 """
-                UPDATE jobs SET state = 'pending', last_error = %s, lease_until = NULL,
+                UPDATE jobs SET state = 'pending', last_error = %s, lease_until = NULL, stage = NULL,
                                 run_after = now() + %s, updated_at = now()
                 WHERE id = %s
                 RETURNING run_after

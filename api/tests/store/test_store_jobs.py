@@ -272,3 +272,73 @@ def test_concurrent_claimers_same_key(pool: ConnectionPool) -> None:
     assert not errors
     assert max_running <= 1
     assert scalar(pool, "SELECT count(*) FROM jobs WHERE state = 'pending'") in (0, 1)
+
+
+# ---- live stage + ETA (migration 0002) -----------------------------------------------------
+def test_report_stage_and_jobs_status_fields(queue: PgJobQueue, pool: ConnectionPool) -> None:
+    from atlas.read.jobs import PgJobsStatusReader
+
+    reader = PgJobsStatusReader(connect=pool.connection)
+    queue.enqueue(up("a.md"))
+    s = reader.status(V, 10)
+    assert s.avg_seconds_per_file is None
+    assert s.files[0].status == "queued" and s.files[0].stage is None and s.files[0].started_at is None
+
+    claimed = queue.claim(LEASE)
+    assert claimed is not None
+    s = reader.status(V, 10)
+    assert s.files[0].status == "indexing" and s.files[0].stage == "reading" and s.files[0].started_at is not None
+
+    for stage in ("parsing", "embedding", "enriching", "linking", "saving"):
+        queue.report_stage(claimed.job_id, stage)  # type: ignore[arg-type]
+        assert reader.status(V, 10).files[0].stage == stage
+
+    with pool.connection() as conn:  # make the attempt take a known 4 s
+        conn.execute("UPDATE jobs SET started_at = now() - interval '4 seconds' WHERE id = %s", (claimed.job_id,))
+    queue.complete(claimed.job_id, Indexed(document_id=document_id_for(V, VaultPath("a.md")), path=VaultPath("a.md"),
+                                           link_count=0, topic_count=0, cluster_id=None))
+    assert scalar(pool, "SELECT stage FROM jobs WHERE id = %s", claimed.job_id) is None
+    queue.report_stage(claimed.job_id, "saving")  # no-op once the job is done
+    assert scalar(pool, "SELECT stage FROM jobs WHERE id = %s", claimed.job_id) is None
+    s = reader.status(V, 10)
+    assert s.files[0].status == "linked" and s.files[0].stage is None and s.files[0].started_at is not None
+    assert s.avg_seconds_per_file is not None and 3.9 < s.avg_seconds_per_file < 4.5
+
+
+def test_avg_seconds_uses_only_recent_done_upserts(queue: PgJobQueue, pool: ConnectionPool) -> None:
+    from atlas.read.jobs import ETA_SAMPLE, PgJobsStatusReader
+
+    with pool.connection() as conn:
+        # 20 recent 2 s upserts, one older 100 s upsert (outside the sample), a 50 s remove,
+        # a failed upsert, and a legacy done row without started_at: only the 20 count.
+        for i in range(ETA_SAMPLE):
+            conn.execute(
+                "INSERT INTO jobs (vault_id, kind, path, dedup_key, payload, state, started_at, finished_at)"
+                " VALUES (%s, 'upsert', %s, %s, '{}', 'done', now() - interval '2 seconds', now())",
+                (V, f"n{i}.md", f"n{i}.md"),
+            )
+        conn.execute(
+            "INSERT INTO jobs (vault_id, kind, path, dedup_key, payload, state, started_at, finished_at) VALUES"
+            " (%(v)s, 'upsert', 'old.md', 'old.md', '{}', 'done', now() - interval '1 hour 100 seconds', now() - interval '1 hour'),"
+            " (%(v)s, 'remove', 'r.md', 'r.md', '{}', 'done', now() - interval '50 seconds', now()),"
+            " (%(v)s, 'upsert', 'f.md', 'f.md', '{}', 'failed', now() - interval '50 seconds', now()),"
+            " (%(v)s, 'upsert', 'legacy.md', 'legacy.md', '{}', 'done', NULL, now())",
+            {"v": V},
+        )
+    avg = PgJobsStatusReader(connect=pool.connection).status(V, 50).avg_seconds_per_file
+    assert avg is not None and abs(avg - 2.0) < 0.01
+
+
+def test_report_stage_swallows_db_errors(pool: ConnectionPool) -> None:
+    broken = PgJobQueue(pool)
+    broken._pool = None  # type: ignore[assignment]  # any failure inside must not escape
+    broken.report_stage(JobId(uuid.uuid4()), "reading")
+
+
+def test_fail_clears_stage(queue: PgJobQueue, pool: ConnectionPool) -> None:
+    queue.enqueue(up("a.md"))
+    claimed = queue.claim(LEASE)
+    assert claimed is not None
+    queue.report_stage(claimed.job_id, "embedding")
+    assert isinstance(queue.fail(claimed.job_id, ModelUnavailable(detail="down")), RetryAt)
+    assert scalar(pool, "SELECT stage FROM jobs WHERE id = %s", claimed.job_id) is None

@@ -19,6 +19,7 @@ from atlas.types import (
     GraphView,
     IgnoredFile,
     IngestError,
+    IndexStage,
     IngestOutcome,
     JobId,
     JobState,
@@ -167,6 +168,8 @@ class FileProgress(Dto):
     error: IngestError | None
     outcome: IngestOutcome | None
     updated_at: datetime
+    stage: IndexStage | None  # set only while status == "indexing", else null
+    started_at: datetime | None  # when the current attempt was claimed
 
 
 class JobFailure(Dto):
@@ -185,6 +188,9 @@ class JobsStatusResponse(Dto):
     recent_failures: list[JobFailure]
     recluster_pending: bool
     idle: bool  # no pending or running jobs
+    avg_seconds_per_file: float | None = Field(
+        description="Mean (finished_at - started_at) over the most recent up to 20 done upsert jobs; null if none"
+    )
 
 
 # ---- errors -------------------------------------------------------------------------------

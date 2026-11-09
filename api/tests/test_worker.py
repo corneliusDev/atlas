@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from atlas.pipeline import FsFileReader, IngestPipelineImpl, PipelineConfig
+from atlas.ports import StageReporter, no_stage_report
 from atlas.testing.fakes import (
     FakeEmbeddingModel,
     FakeLanguageModel,
@@ -156,7 +157,7 @@ def test_oversized_markdown_is_ignored(tmp_path: Path) -> None:
 
 
 class ExplodingPipeline:
-    def run(self, job: IngestJob) -> IngestOutcome | ModelUnavailable:
+    def run(self, job: IngestJob, report: StageReporter = no_stage_report) -> IngestOutcome | ModelUnavailable:
         raise RuntimeError("boom")
 
 
@@ -175,3 +176,30 @@ def test_stop_event_ends_run(tmp_path: Path) -> None:
     w = Worker(queue=q, pipeline=ExplodingPipeline(), poll_s=0.01, concurrency=2)
     w.stop.set()
     w.run()  # returns promptly without exit_when_idle
+
+
+class StagePipeline:
+    """Reports two stages and records what the queue row showed after each."""
+
+    def __init__(self, queue: InMemoryJobQueue) -> None:
+        self.queue = queue
+        self.observed: list[object] = []
+
+    def run(self, job: IngestJob, report: StageReporter = no_stage_report) -> IngestOutcome | ModelUnavailable:
+        self.observed.append(self.queue.rows[0].stage)  # claim sets "reading"
+        report("embedding")
+        self.observed.append(self.queue.rows[0].stage)
+        report("saving")
+        self.observed.append(self.queue.rows[0].stage)
+        return Skipped(path=VaultPath("a.md"), reason=SkipReason.UNCHANGED)
+
+
+def test_worker_reports_pipeline_stages_to_the_queue() -> None:
+    q = InMemoryJobQueue()
+    q.enqueue(Upsert(vault=V, path=VaultPath("a.md"), origin="vault"))
+    pipe = StagePipeline(q)
+    w = Worker(queue=q, pipeline=pipe, poll_s=0.01, concurrency=1, exit_when_idle=True)
+    w.run()
+    assert pipe.observed == ["reading", "embedding", "saving"]
+    row = q.rows[0]
+    assert row.state is JobState.DONE and row.stage is None and row.started_at is not None

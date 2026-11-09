@@ -30,6 +30,7 @@ from atlas.types import (
     DocumentVector,
     Embedding,
     GaveUp,
+    IndexStage,
     IngestError,
     IngestJob,
     IngestOutcome,
@@ -224,6 +225,8 @@ class _JobRow:
     lease_until: datetime | None = None
     outcome: IngestOutcome | None = None
     error: IngestError | None = None
+    stage: IndexStage | None = None
+    started_at: datetime | None = None
 
 
 def _dedup_key(job: IngestJob) -> str:
@@ -260,10 +263,11 @@ class InMemoryJobQueue:
         running = {self._key(r) for r in self.rows if r.state is JobState.RUNNING and r.lease_until and r.lease_until > now}
         for row in self.rows:
             if row.state is JobState.RUNNING and row.lease_until and row.lease_until <= now:
-                row.state = JobState.PENDING  # expired lease: reclaimable
+                row.state, row.stage = JobState.PENDING, None  # expired lease: reclaimable
         for row in self.rows:
             if row.state is JobState.PENDING and row.run_after <= now and self._key(row) not in running:
                 row.state, row.attempts, row.lease_until = JobState.RUNNING, row.attempts + 1, now + lease
+                row.started_at, row.stage = now, "reading"
                 return ClaimedJob(job_id=row.id, job=row.job, attempt=row.attempts, lease_until=row.lease_until)
         return None
 
@@ -275,11 +279,16 @@ class InMemoryJobQueue:
 
     def complete(self, job_id: JobId, outcome: IngestOutcome) -> None:
         row = self._row(job_id)
-        row.state, row.outcome, row.lease_until = JobState.DONE, outcome, None
+        row.state, row.outcome, row.lease_until, row.stage = JobState.DONE, outcome, None, None
+
+    def report_stage(self, job_id: JobId, stage: IndexStage) -> None:
+        for row in self.rows:
+            if row.id == job_id and row.state is JobState.RUNNING:
+                row.stage = stage
 
     def fail(self, job_id: JobId, error: IngestError) -> RetryDecision:
         row = self._row(job_id)
-        row.error, row.lease_until = error, None
+        row.error, row.lease_until, row.stage = error, None, None
         if not type(error).retryable or row.attempts >= self.max_attempts:
             row.state = JobState.FAILED
             return GaveUp(attempts=row.attempts)

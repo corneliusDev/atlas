@@ -5,12 +5,15 @@ import { Breadcrumbs } from "./components/Breadcrumbs";
 import { DocumentPanel } from "./components/DocumentPanel";
 import { EvidenceDialog } from "./components/EvidenceDialog";
 import { FiltersPanel } from "./components/FiltersPanel";
+import { DropOverlay, useWindowFileDrag } from "./components/DropOverlay";
 import { GraphArea } from "./components/graph/GraphArea";
+import { GraphOverlay } from "./components/graph/GraphOverlay";
 import type { EdgeSelection, FocusRequest } from "./components/graph/GraphCanvas";
 import { ListView } from "./components/ListView";
 import { NodePanel } from "./components/NodePanel";
 import { ProgressTray } from "./components/ProgressTray";
 import { SearchPalette } from "./components/SearchPalette";
+import { UploadCard } from "./components/UploadCard";
 import { UploadZone, useUpload } from "./components/UploadZone";
 import { useAsync } from "./hooks/useAsync";
 import { useJobs } from "./hooks/useJobs";
@@ -24,6 +27,10 @@ type Scope = "global" | "local";
 type PendingFocus = { type: "cluster"; id: string } | { type: "node"; key: string } | null;
 
 const VIEW_KEY = "atlas.viewMode";
+/** While indexing, refetch the graph at most this often as files finish (live growth). */
+export const LIVE_REFRESH_MS = 2000;
+/** Keep marking new nodes this long after the queue drains (the final refetch lands then). */
+const GROWTH_TAIL_MS = 6000;
 
 function readViewMode(): ViewMode {
   try {
@@ -54,7 +61,7 @@ export default function App() {
   const [trayDismissed, setTrayDismissed] = useState(true);
   const [batchDone, setBatchDone] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
-  const [dragOver, setDragOver] = useState(false);
+  const [growing, setGrowing] = useState(false);
   const focusNonce = useRef(0);
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
@@ -86,24 +93,43 @@ export default function App() {
   const tags = useMemo(() => [...new Set((catalog.data?.nodes ?? []).flatMap((n) => n.tags))].sort(), [catalog.data]);
   const empty = catalog.data !== null && catalog.data.stats.documents === 0;
 
-  // Jobs: refresh the graph as files land so nodes appear live (flow A, step 3).
+  // Jobs: refresh the graph as files land so nodes appear live (flow A, step 3). Refetches are
+  // throttled to one per LIVE_REFRESH_MS so a fast batch does not hammer /api/graph.
   const jobs = useJobs();
-  const linked = jobs.status?.files.filter((f) => f.status === "linked").length ?? 0;
-  const prevLinked = useRef(0);
+  const doneCount = jobs.status?.counts.done ?? jobs.status?.files.filter((f) => f.status === "linked").length ?? 0;
+  const prevDone = useRef(0);
+  const liveTimer = useRef<number | null>(null);
+  const cancelLiveRefresh = useCallback(() => {
+    if (liveTimer.current !== null) window.clearTimeout(liveTimer.current);
+    liveTimer.current = null;
+  }, []);
   useEffect(() => {
-    if (linked > prevLinked.current) refresh();
-    prevLinked.current = linked;
-  }, [linked, refresh]);
+    if (doneCount > prevDone.current && liveTimer.current === null) {
+      liveTimer.current = window.setTimeout(() => {
+        liveTimer.current = null;
+        refresh();
+      }, LIVE_REFRESH_MS);
+    }
+    prevDone.current = doneCount;
+  }, [doneCount, refresh]);
+  useEffect(() => cancelLiveRefresh, [cancelLiveRefresh]);
   const wasActive = useRef(false);
   useEffect(() => {
     // A vault scan started elsewhere (or at first boot) opens the tray too (flow A, step 2).
-    if (jobs.active) setTrayDismissed(false);
+    if (jobs.active) {
+      setTrayDismissed(false);
+      setGrowing(true);
+    }
     if (wasActive.current && !jobs.active) {
       setBatchDone(true);
+      cancelLiveRefresh();
       refresh();
     }
     wasActive.current = jobs.active;
-  }, [jobs.active, refresh]);
+    if (jobs.active) return;
+    const id = window.setTimeout(() => setGrowing(false), GROWTH_TAIL_MS);
+    return () => window.clearTimeout(id);
+  }, [jobs.active, refresh, cancelLiveRefresh]);
 
   const onUploaded = useCallback(
     (res: UploadResponse) => {
@@ -114,7 +140,10 @@ export default function App() {
     },
     [jobs],
   );
-  const dropUpload = useUpload(onUploaded);
+  // One upload controller for the header button, the first-run zone and window drops, so the
+  // status card is shared and a second drop while busy is ignored.
+  const upload = useUpload(onUploaded);
+  const drag = useWindowFileDrag((files) => void upload.send(files));
 
   // Navigation.
   const visit = useCallback((key: string, label: string) => {
@@ -212,22 +241,7 @@ export default function App() {
   const showPanel = panelOpen && crumb !== null;
 
   return (
-    <div
-      className={`app ${showPanel ? "has-panel" : ""} ${filtersOpen && !empty ? "has-filters" : ""}`}
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("Files")) return;
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={(e) => {
-        if (e.currentTarget === e.target || !e.relatedTarget) setDragOver(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        void dropUpload.send([...e.dataTransfer.files]);
-      }}
-    >
+    <div className={`app ${showPanel ? "has-panel" : ""} ${filtersOpen && !empty ? "has-filters" : ""}`}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -283,7 +297,7 @@ export default function App() {
               >
                 ☰
               </button>
-              <UploadZone variant="button" onUploaded={onUploaded} />
+              <UploadZone variant="button" upload={upload} />
             </>
           )}
           <button
@@ -333,11 +347,14 @@ export default function App() {
           {catalog.error && !catalog.data ? (
             <div className="stage-message" role="alert">
               <h2>Atlas cannot reach its API</h2>
-              <p className="muted">{catalog.error.message}. Check that the api service is running, then reload.</p>
+              <p className="muted">{catalog.error.message}. Check that the api service is running.</p>
+              <button type="button" className="btn" onClick={refresh}>
+                Retry
+              </button>
             </div>
           ) : empty ? (
             <div className="empty-state">
-              <UploadZone variant="hero" onUploaded={onUploaded} />
+              <UploadZone variant="hero" upload={upload} />
             </div>
           ) : data ? (
             <>
@@ -360,6 +377,7 @@ export default function App() {
                   selectedKey={selectedKey}
                   highlightKeys={highlight.keys}
                   focus={focus}
+                  markNewNodes={growing && !localCenter}
                   onSelectNode={visit}
                   onSelectEdge={onSelectEdge}
                   onShowList={() => setViewMode("list")}
@@ -370,16 +388,19 @@ export default function App() {
                 {data.stats.documents} documents · {data.stats.clusters} themes · {data.stats.links} links
                 {view.loading ? " · updating…" : ""}
               </p>
+              {view.error && !view.loading && (
+                <p className="stage-error small" role="alert">
+                  Could not refresh the graph.{" "}
+                  <button type="button" className="link-btn small" onClick={refresh}>
+                    Retry
+                  </button>
+                </p>
+              )}
             </>
           ) : view.error ? (
-            <div className="stage-message" role="alert">
-              <h2>Could not load the graph</h2>
-              <p className="muted">{view.error.message}</p>
-            </div>
+            <GraphOverlay state={{ kind: "error", message: view.error.message, onRetry: refresh }} />
           ) : (
-            <div className="stage-message" aria-busy="true">
-              <p className="muted">Loading your map…</p>
-            </div>
+            <GraphOverlay state={{ kind: "loading" }} />
           )}
         </main>
 
@@ -419,33 +440,24 @@ export default function App() {
         )}
       </div>
 
-      {!trayDismissed && (
-        <ProgressTray
-          status={jobs.status}
-          ignored={ignored}
-          summary={summary}
-          onDismiss={() => {
-            setTrayDismissed(true);
-            setIgnored([]);
-          }}
-          onOpenDocument={(id, label) => visit(docKey(id), label)}
-          onZoomCluster={zoomCluster}
-        />
-      )}
+      <div className="dock">
+        <UploadCard upload={upload} />
+        {!trayDismissed && (
+          <ProgressTray
+            status={jobs.status}
+            ignored={ignored}
+            summary={summary}
+            onDismiss={() => {
+              setTrayDismissed(true);
+              setIgnored([]);
+            }}
+            onOpenDocument={(id, label) => visit(docKey(id), label)}
+            onZoomCluster={zoomCluster}
+          />
+        )}
+      </div>
 
-      {dragOver && (
-        <div className="drop-overlay" aria-hidden="true">
-          <div className="drop-overlay-card">
-            <strong>Drop your .md files here</strong>
-            <span className="muted small">or a zipped folder</span>
-          </div>
-        </div>
-      )}
-      {dropUpload.error && (
-        <p role="alert" className="toast error">
-          Upload failed: {dropUpload.error}
-        </p>
-      )}
+      <DropOverlay drag={drag} busy={upload.busy} />
 
       {paletteOpen && (
         <SearchPalette

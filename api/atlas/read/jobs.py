@@ -34,6 +34,7 @@ STATUS_OF: dict[JobState, FileStatus] = {
 }
 
 RECENT_FAILURES = 20
+ETA_SAMPLE = 20  # avg_seconds_per_file: most recent done upserts
 
 
 def _parse_error(raw: Any) -> IngestError | None:
@@ -61,7 +62,7 @@ class PgJobsStatusReader:
     connect: Connect
 
     def status(self, vault: VaultId, limit: int) -> JobsStatusResponse:
-        p = {"v": vault, "limit": limit, "failures": RECENT_FAILURES}
+        p = {"v": vault, "limit": limit, "failures": RECENT_FAILURES, "eta": ETA_SAMPLE}
         with self.connect() as conn:
             counts = {s: 0 for s in JobState}
             for r in fetch_all(conn, "SELECT state, count(*) AS n FROM jobs WHERE vault_id = %(v)s GROUP BY state", p):
@@ -70,7 +71,8 @@ class PgJobsStatusReader:
                 conn,
                 """
                 SELECT * FROM (
-                    SELECT DISTINCT ON (path) id, path, kind, state, attempts, last_error, outcome, updated_at
+                    SELECT DISTINCT ON (path) id, path, kind, state, attempts, last_error, outcome, updated_at,
+                                              stage, started_at
                     FROM jobs
                     WHERE vault_id = %(v)s AND path IS NOT NULL
                     ORDER BY path, created_at DESC, updated_at DESC
@@ -93,6 +95,21 @@ class PgJobsStatusReader:
                 p,
             )
 
+            avg = fetch_all(
+                conn,
+                """
+                SELECT avg(extract(epoch FROM finished_at - started_at))::float8 AS s FROM (
+                    SELECT started_at, finished_at FROM jobs
+                    WHERE vault_id = %(v)s AND kind = 'upsert' AND state = 'done'
+                      AND started_at IS NOT NULL AND finished_at IS NOT NULL
+                    ORDER BY finished_at DESC
+                    LIMIT %(eta)s
+                ) recent
+                """,
+                p,
+            )
+        avg_seconds = avg[0]["s"] if avg and avg[0]["s"] is not None else None
+
         progress: list[FileProgress] = []
         for r in files:
             state = JobState(r["state"])
@@ -106,6 +123,8 @@ class PgJobsStatusReader:
                     error=_parse_error(r["last_error"]) if state is not JobState.DONE else None,
                     outcome=_parse_outcome(r["outcome"]) if state is JobState.DONE else None,
                     updated_at=r["updated_at"],
+                    stage=r["stage"] if state is JobState.RUNNING else None,
+                    started_at=r["started_at"] if state is not JobState.PENDING else None,  # queued: no current attempt
                 )
             )
         recent: list[JobFailure] = []
@@ -130,4 +149,5 @@ class PgJobsStatusReader:
             recent_failures=recent,
             recluster_pending=bool(recluster),
             idle=counts[JobState.PENDING] == 0 and counts[JobState.RUNNING] == 0,
+            avg_seconds_per_file=float(avg_seconds) if avg_seconds is not None else None,
         )

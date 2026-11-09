@@ -179,7 +179,7 @@ class Worker:
         job = claimed.job
         label = job.kind if isinstance(job, Recluster) else f"{job.kind} {job.path}"
         try:
-            result = self.pipeline.run(job)
+            result = self.pipeline.run(job, lambda stage: self.queue.report_stage(claimed.job_id, stage))
         except Exception as exc:  # repository / unexpected errors: retry with backoff
             log.exception("job %s (%s) crashed", claimed.job_id, label)
             result = ModelUnavailable(detail=f"internal error: {type(exc).__name__}: {exc}")

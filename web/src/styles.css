@@ -692,6 +692,86 @@ kbd {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* status layer over the graph: loading, arranging, error */
+.graph-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.graph-overlay.is-arranging {
+  place-items: start center;
+  padding-top: 18px;
+}
+.graph-overlay.is-leaving {
+  opacity: 0;
+}
+.graph-overlay.is-error {
+  pointer-events: auto;
+}
+.graph-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  color: var(--text-2);
+  text-align: center;
+  animation: fade-in 0.2s ease-out;
+}
+.graph-overlay.is-loading .graph-overlay-card {
+  flex-direction: row;
+  gap: 10px;
+}
+.graph-overlay-card .progress {
+  align-self: stretch;
+  margin-top: 2px;
+}
+.graph-overlay-card strong {
+  color: var(--text);
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--surface-3);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+.graph-new-pill {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  z-index: 6;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: pill 3.6s ease forwards;
+}
+.stage-error {
+  position: absolute;
+  left: 14px;
+  bottom: 30px;
+  margin: 0;
+  color: var(--danger);
+}
 .graph-controls {
   position: absolute;
   right: 12px;
@@ -1186,20 +1266,27 @@ mark {
   z-index: 60;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 3px dashed var(--accent);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(2px) saturate(0.8);
+  box-shadow: inset 0 0 0 3px var(--accent);
   pointer-events: none;
+  animation: fade-in 0.12s ease-out;
+}
+.drop-overlay-icon {
+  color: var(--accent);
+  margin-bottom: 6px;
 }
 .drop-overlay-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 18px 26px;
+  padding: 22px 30px;
   border-radius: 14px;
   background: var(--surface);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  font-size: 16px;
+  font-size: 15px;
 }
 .toast {
   position: fixed;
@@ -1214,15 +1301,113 @@ mark {
   z-index: 40;
 }
 
-/* ---------- progress tray ---------- */
+/* ---------- dock: upload card above the progress tray ---------- */
 
-.tray {
+.dock {
   position: fixed;
   right: 16px;
   bottom: 16px;
   z-index: 30;
-  width: 340px;
+  width: 384px;
+  max-height: calc(100vh - var(--topbar-h) - 32px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.dock > * {
+  pointer-events: auto;
+}
+.has-panel .dock {
+  right: calc(var(--panel-w) + 16px);
+}
+
+.upload-card {
+  padding: 10px 12px 10px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 12.5px;
+  animation: rise-in 0.18s ease-out;
+}
+.upload-card-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+.upload-card-title {
+  font-weight: 600;
+  font-size: 13px;
+  min-width: 0;
+}
+.upload-card-pct {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.upload-card-check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  position: relative;
+}
+.upload-card-check::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 3px;
+  width: 4px;
+  height: 7px;
+  border: solid var(--accent);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+}
+.upload-card-note {
+  margin: 6px 0 0;
+}
+.upload-card-ignored {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0 0 0 24px;
+  color: var(--text-2);
+}
+.upload-card-ignored li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.btn-small {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.progress.progress-card {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress.is-indeterminate span {
+  width: 35%;
+  border-radius: 999px;
+  animation: indeterminate 1.3s ease-in-out infinite;
+}
+
+/* ---------- progress tray ---------- */
+
+.tray {
   max-height: 50vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -1230,9 +1415,6 @@ mark {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
-}
-.has-panel .tray {
-  right: calc(var(--panel-w) + 16px);
 }
 .tray-head {
   display: flex;
@@ -1254,6 +1436,13 @@ mark {
 .tray-title {
   font-weight: 600;
   font-size: 13px;
+}
+.tray-eta {
+  font-weight: 400;
+  color: var(--text-2);
+}
+.tray-chevron {
+  margin-left: 8px;
 }
 .progress {
   height: 3px;
@@ -1302,6 +1491,96 @@ mark {
 }
 .tray-reason {
   display: block;
+  white-space: normal;
+}
+.tray-file.is-indexing {
+  padding-top: 7px;
+  padding-bottom: 8px;
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.tray-file-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.tray-file-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.tray-file-line .tray-file-name {
+  white-space: nowrap;
+  font-weight: 500;
+}
+.tray-elapsed,
+.tray-meta {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.tray-stage {
+  font-size: 11px;
+  color: var(--accent);
+}
+.tray-more {
+  display: block;
+  margin: 4px 14px 0 29px;
+}
+
+/* compact six-step pipeline indicator */
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.step-bar {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  position: relative;
+}
+.step.is-done .step-bar {
+  background: color-mix(in srgb, var(--accent) 55%, var(--surface-3));
+}
+.step.is-active .step-bar {
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface-3));
+}
+.step.is-active .step-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: step-sweep 1.4s ease-in-out infinite;
+}
+.step-label {
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.step.is-done .step-label {
+  color: var(--text-2);
+}
+.step.is-active .step-label {
+  color: var(--accent);
+  font-weight: 600;
 }
 .status-dot {
   width: 7px;
@@ -1350,6 +1629,53 @@ mark {
     opacity: 0.35;
   }
 }
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+@keyframes step-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(230%);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pill {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+  10%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1357,6 +1683,14 @@ mark {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+  /* Static stand-ins for the moving indicators. */
+  .step.is-active .step-bar::after {
+    width: 100%;
+  }
+  .progress.is-indeterminate span {
+    width: 100%;
+    opacity: 0.5;
   }
 }
 
@@ -1396,8 +1730,8 @@ mark {
   .passages {
     grid-template-columns: 1fr;
   }
-  .tray,
-  .has-panel .tray {
+  .dock,
+  .has-panel .dock {
     left: 12px;
     right: 12px;
     width: auto;

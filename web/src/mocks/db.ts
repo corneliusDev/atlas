@@ -13,6 +13,7 @@ import type {
   GraphView,
   IgnoredFile,
   JobFailure,
+  IndexingStage,
   JobsStatusResponse,
   LinkEvidenceView,
   LinkVerdict,
@@ -86,6 +87,9 @@ interface MockJob {
   text: string;
   fail: boolean;
   documentId: string | null;
+  /** Realtime mode: wall-clock ms the current attempt started, and how long it will take. */
+  startedAt: number | null;
+  durationMs: number;
 }
 
 interface Db {
@@ -97,6 +101,8 @@ interface Db {
   jobs: MockJob[];
   jobSeq: number;
   clock: number;
+  /** Realtime mode: seconds each finished file took, newest last. */
+  durations: number[];
 }
 
 // Assigned at the end of the module, once every helper and constant `seed` uses exists.
@@ -138,6 +144,7 @@ function seed(empty: boolean): Db {
     jobs: [],
     jobSeq: 0,
     clock: BASE_TIME,
+    durations: [],
   };
   if (empty) return fresh;
 
@@ -207,6 +214,15 @@ function sharedTopicName(state: Db, x: MockDoc, y: MockDoc): string | null {
 function makeLink(x: MockDoc, y: MockDoc, score: number, reason: string | null): MockLink {
   const [a, b] = x.id < y.id ? [x, y] : [y, x];
   return { a: a.id, b: b.id, score, reason, aChunk: a.chunks[a.chunks.length - 1]!.id, bChunk: b.chunks[b.chunks.length - 1]!.id };
+}
+
+/**
+ * Realtime mode (the browser demo): jobs move through the six pipeline stages on the wall clock,
+ * two at a time like the real worker pool. Off under test, where every poll advances one step.
+ */
+let realtime = false;
+export function setMockRealtime(on: boolean): void {
+  realtime = on;
 }
 
 export function resetMockDb(opts: { empty?: boolean } = {}): void {
@@ -589,6 +605,8 @@ export async function upload(files: File[]): Promise<UploadResponse> {
         text: entry.text,
         fail: /fail/i.test(entry.path),
         documentId: null,
+        startedAt: null,
+        durationMs: jobDuration(entry.text),
       };
       db.jobs = db.jobs.filter((j) => !(j.path === path && j.stage === 0));
       db.jobs.push(job);
@@ -608,13 +626,92 @@ async function readText(file: File): Promise<string> {
 
 const STAGE_STATUS: FileStatus[] = ["queued", "indexing", "linked", "failed"];
 
-/** Every poll advances each live job one step: queued -> indexing -> linked | failed. */
+const PIPELINE: { stage: IndexingStage; share: number }[] = [
+  { stage: "reading", share: 0.05 },
+  { stage: "parsing", share: 0.07 },
+  { stage: "embedding", share: 0.2 },
+  { stage: "enriching", share: 0.45 },
+  { stage: "linking", share: 0.15 },
+  { stage: "saving", share: 0.08 },
+];
+/** Mirrors the api's worker pool size. */
+const MOCK_WORKERS = 2;
+const FAILURE = { kind: "model_unavailable", detail: "Ollama is not reachable at http://ollama:11434" } as const;
+
+/** 3.5-7 s per file, a little longer for longer notes, so the demo shows every stage. */
+function jobDuration(text: string): number {
+  return Math.round(3500 + Math.random() * 2500 + Math.min(1000, text.length / 4));
+}
+
+function stageAt(job: MockJob, now: number): IndexingStage {
+  const t = job.startedAt === null ? 0 : (now - job.startedAt) / job.durationMs;
+  let acc = 0;
+  for (const p of PIPELINE) {
+    acc += p.share;
+    if (t < acc) return p.stage;
+  }
+  return "saving";
+}
+
+/** Realtime: finish jobs whose time is up (failing ones stop during "enriching"), then fill free workers. */
+function advanceRealtime(now: number): void {
+  for (const job of db.jobs) {
+    if (job.stage !== 1 || job.startedAt === null) continue;
+    const limit = job.fail ? job.durationMs * 0.5 : job.durationMs;
+    if (now - job.startedAt < limit) continue;
+    job.stage = job.fail ? 3 : 2;
+    job.updated_at = new Date(now).toISOString();
+    if (!job.fail) {
+      job.documentId = indexUpload(job);
+      db.durations = [...db.durations, job.durationMs / 1000].slice(-20);
+    }
+  }
+  let free = MOCK_WORKERS - db.jobs.filter((j) => j.stage === 1).length;
+  for (const job of db.jobs) {
+    if (free <= 0) break;
+    if (job.stage !== 0) continue;
+    job.stage = 1;
+    job.attempts += 1;
+    job.startedAt = now;
+    job.updated_at = new Date(now).toISOString();
+    free -= 1;
+  }
+}
+
+/** Queues `n` synthetic notes (the `?batch` demo), as if a folder had just been uploaded. */
+export function enqueueDemoBatch(n: number): void {
+  const now = Date.now();
+  for (let i = 0; i < n; i++) {
+    db.jobSeq += 1;
+    const title = `Field note ${i + 1}`;
+    db.jobs.push({
+      job_id: `10b00000-0000-4000-8000-${db.jobSeq.toString(16).padStart(12, "0")}`,
+      path: `uploads/batch/${title.toLowerCase().replace(/\s+/g, "-")}${i === 7 ? "-will-fail" : ""}.md`,
+      stage: 0,
+      attempts: 0,
+      updated_at: new Date(now - (n - i)).toISOString(),
+      text: `# ${title}\n\nNotes on sourdough, pricing and churn, gathered while testing Atlas (${i + 1}).`,
+      fail: i === 7,
+      documentId: null,
+      startedAt: null,
+      durationMs: jobDuration("x".repeat(200 + ((i * 397) % 2000))),
+    });
+  }
+}
+
+/**
+ * Under test every poll advances each live job one step (queued -> indexing -> linked | failed);
+ * in realtime mode jobs advance on the wall clock (see advanceRealtime).
+ */
 export function jobsStatus(advance = true): JobsStatusResponse {
-  if (advance) {
+  const now = Date.now();
+  if (advance && realtime) advanceRealtime(now);
+  else if (advance) {
     for (const job of db.jobs) {
       if (job.stage === 0) {
         job.stage = 1;
         job.attempts += 1;
+        job.startedAt = now;
         job.updated_at = tick();
       } else if (job.stage === 1) {
         job.stage = job.fail ? 3 : 2;
@@ -630,19 +727,22 @@ export function jobsStatus(advance = true): JobsStatusResponse {
       path: j.path,
       kind: "upsert",
       status: STAGE_STATUS[j.stage]!,
+      stage: j.stage === 1 ? (realtime ? stageAt(j, now) : "embedding") : null,
+      started_at: j.startedAt === null ? null : new Date(j.startedAt).toISOString(),
       attempts: j.attempts,
-      error: j.stage === 3 ? { kind: "model_unavailable", detail: "Ollama is not reachable at http://ollama:11434" } : null,
+      error: j.stage === 3 ? FAILURE : null,
       outcome:
         j.stage === 2
-          ? { kind: "indexed", document_id: j.documentId!, path: j.path, link_count: 2, topic_count: 1, cluster_id: db.docs.find((d) => d.id === j.documentId)?.cluster ?? null }
+          ? { kind: "indexed", document_id: j.documentId!, path: j.path, link_count: linkCount(j.documentId!), topic_count: 1, cluster_id: db.docs.find((d) => d.id === j.documentId)?.cluster ?? null }
           : null,
       updated_at: j.updated_at,
     }));
   const failures: JobFailure[] = db.jobs
     .filter((j) => j.stage === 3)
-    .map((j) => ({ job_id: j.job_id, kind: "upsert", path: j.path, error: { kind: "model_unavailable", detail: "Ollama is not reachable at http://ollama:11434" }, attempts: j.attempts, failed_at: j.updated_at }));
+    .map((j) => ({ job_id: j.job_id, kind: "upsert", path: j.path, error: FAILURE, attempts: j.attempts, failed_at: j.updated_at }));
   const counts = { pending: 0, running: 0, done: 0, failed: 0 };
   for (const j of db.jobs) counts[(["pending", "running", "done", "failed"] as const)[j.stage]] += 1;
+  const avg = db.durations.length ? db.durations.reduce((a, b) => a + b, 0) / db.durations.length : null;
   return {
     vault: DEFAULT_VAULT,
     counts,
@@ -650,7 +750,12 @@ export function jobsStatus(advance = true): JobsStatusResponse {
     recent_failures: failures,
     recluster_pending: false,
     idle: counts.pending === 0 && counts.running === 0,
+    avg_seconds_per_file: avg === null ? null : Math.round(avg * 10) / 10,
   };
+}
+
+function linkCount(documentId: string): number {
+  return db.links.filter((l) => l.a === documentId || l.b === documentId).length;
 }
 
 function indexUpload(job: MockJob): string {

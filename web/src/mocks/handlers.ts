@@ -99,7 +99,9 @@ export const handlers = [
   }),
 
   http.post("*/api/uploads", async ({ request }) => {
-    await latency();
+    // The real api reads, validates and enqueues every file before answering; give the
+    // "Processing on server" state a moment to show in the browser demo.
+    await (import.meta.env.MODE === "test" ? Promise.resolve() : delay(900));
     const form = await request.formData();
     const files = form.getAll("files").filter((f): f is File => typeof f !== "string");
     if (!files.length) return badRequest("no files");

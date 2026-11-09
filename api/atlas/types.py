@@ -115,6 +115,11 @@ class FileStatus(StrEnum):
     FAILED = "failed"
 
 
+IndexStage = Literal["reading", "parsing", "embedding", "enriching", "linking", "saving"]
+"""Live stage of a running Upsert job (jobs.stage). "enriching" = LLM summary + topics;
+"linking" = nearest neighbours + chunk matching + LLM link reasons; "saving" = the single write
+transaction."""
+
 DocumentOrigin = Literal["vault", "upload"]
 
 # ---------------------------------------------------------------------------

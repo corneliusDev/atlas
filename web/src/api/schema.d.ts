@@ -398,6 +398,10 @@ export interface components {
             outcome: (components["schemas"]["Indexed"] | components["schemas"]["Skipped"] | components["schemas"]["Removed"] | components["schemas"]["Reclustered"]) | null;
             /** Path */
             path: string;
+            /** Stage */
+            stage: ("reading" | "parsing" | "embedding" | "enriching" | "linking" | "saving") | null;
+            /** Started At */
+            started_at: string | null;
             status: components["schemas"]["FileStatus"];
             /**
              * Updated At
@@ -582,6 +586,11 @@ export interface components {
         JobState: "pending" | "running" | "done" | "failed";
         /** JobsStatusResponse */
         JobsStatusResponse: {
+            /**
+             * Avg Seconds Per File
+             * @description Mean (finished_at - started_at) over the most recent up to 20 done upsert jobs; null if none
+             */
+            avg_seconds_per_file: number | null;
             /** Counts */
             counts: {
                 [key: string]: number;

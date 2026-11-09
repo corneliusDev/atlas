@@ -28,6 +28,8 @@ from atlas.ports import (
     EmbeddingModel,
     FileReader,
     LanguageModel,
+    StageReporter,
+    no_stage_report,
     ModelTimeoutError,
     ModelUnavailableError,
 )
@@ -167,11 +169,13 @@ class IngestPipelineImpl:
         self._config = config
         self._clock = clock
 
-    def run(self, job: IngestJob) -> IngestOutcome | IngestError:
+    def run(self, job: IngestJob, report: StageReporter = no_stage_report) -> IngestOutcome | IngestError:
+        """``report`` is called at the start of each Upsert stage (reading, parsing, embedding,
+        enriching, linking, saving); Remove and Recluster report nothing."""
         try:
             match job:
                 case Upsert():
-                    return self._upsert(job)
+                    return self._upsert(job, report)
                 case Remove():
                     return self._remove(job.vault, job.path)
                 case Recluster():
@@ -189,7 +193,8 @@ class IngestPipelineImpl:
         return Removed(path=path)
 
     # -- Upsert ---------------------------------------------------------------------------
-    def _upsert(self, job: Upsert) -> IngestOutcome | IngestError:
+    def _upsert(self, job: Upsert, report: StageReporter) -> IngestOutcome | IngestError:
+        report("reading")
         data = self._files.read(job.vault, job.path, job.origin)
         if data is None:  # vanished between enqueue and run
             return self._remove(job.vault, job.path)
@@ -202,12 +207,14 @@ class IngestPipelineImpl:
         except UnicodeDecodeError:
             return NotUtf8(path=job.path)
 
+        report("parsing")
         cfg = self._config
         doc_id = document_id_for(job.vault, job.path)
         note = parse_markdown(job.path, raw).model_copy(update={"content_hash": new_hash})
         chunks = chunk(note, max_tokens=cfg.chunk_max_tokens, overlap=cfg.chunk_overlap)
 
         # Network (outside any transaction): embeddings, then LLM enrichment.
+        report("embedding")
         chunk_vectors = self._embeddings.embed([c.text for c in chunks])
         embedded = tuple(
             EmbeddedChunk(
@@ -221,6 +228,7 @@ class IngestPipelineImpl:
         )
         doc_vector = _mean_unit(chunk_vectors)
 
+        report("enriching")
         summary = self._language.summarize(note)
         mentions = self._language.extract_topics(note)
         topics = self._embed_topics(note, mentions)
@@ -228,6 +236,7 @@ class IngestPipelineImpl:
         tags = tuple(sorted(set(note.tags) | {t.strip().lstrip("#").lower() for t in summary.tags if t.strip()}))
 
         # Reads + pure scoring.
+        report("linking")
         neighbors = self._documents.nearest_documents(job.vault, doc_vector, cfg.knn_candidates, exclude=job.path)
         scored = score_links(
             match_chunks(embedded, neighbors), cfg.link_threshold, cfg.link_top_k, source=doc_id
@@ -259,6 +268,7 @@ class IngestPipelineImpl:
             cluster_id=cluster_id,
             indexed_at=self._clock(),
         )
+        report("saving")
         result = self._documents.save_document(aggregate, expected_hash=stored_hash)  # ONE tx
         match result:
             case Saved(document_id=saved_id):

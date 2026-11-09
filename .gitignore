@@ -8,3 +8,5 @@ dist/
 .mypy_cache/
 *.egg-info/
 .claude/
+.DS_Store
+docs/demo/*.webm
