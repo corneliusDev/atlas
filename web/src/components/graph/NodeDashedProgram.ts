@@ -4,6 +4,7 @@
  * It reuses NodeCircleProgram's vertex shader and attributes and swaps the fragment shader.
  */
 import { NodeCircleProgram } from "sigma/rendering";
+import type { Attributes } from "graphology-types";
 
 const FRAGMENT_SHADER_SOURCE = /* glsl */ `
 precision highp float;
@@ -45,7 +46,11 @@ void main(void) {
 }
 `;
 
-export class NodeDashedProgram extends NodeCircleProgram {
+export class NodeDashedProgram<
+  N extends Attributes = Attributes,
+  E extends Attributes = Attributes,
+  G extends Attributes = Attributes,
+> extends NodeCircleProgram<N, E, G> {
   getDefinition() {
     return { ...super.getDefinition(), FRAGMENT_SHADER_SOURCE };
   }

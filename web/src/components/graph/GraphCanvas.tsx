@@ -58,7 +58,7 @@ function makeHoverRenderer(theme: ResolvedTheme) {
   return (
     context: CanvasRenderingContext2D,
     data: PartialButFor<NodeDisplayData, "x" | "y" | "size" | "label" | "color">,
-    settings: Settings,
+    settings: Settings<NodeAttrs, EdgeAttrs>,
   ) => {
     const size = settings.labelSize;
     context.font = `${settings.labelWeight} ${size}px ${settings.labelFont}`;

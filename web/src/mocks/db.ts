@@ -408,7 +408,7 @@ const ref = (d: MockDoc) => ({ id: d.id, path: d.path, title: d.title });
 export function documentDetail(id: string): DocumentDetail | null {
   const doc = db.docs.find((d) => d.id === id);
   if (!doc) return null;
-  const related = db.links
+  const related: DocumentDetail["related"] = db.links
     .filter((l) => l.a === id || l.b === id)
     .map((l) => ({ l, other: db.docs.find((d) => d.id === (l.a === id ? l.b : l.a))!, fb: db.feedback.get(pairKey(l.a, l.b)) }))
     .filter((r) => r.fb?.verdict !== "hidden")
